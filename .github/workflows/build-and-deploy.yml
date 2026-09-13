@@ -1,0 +1,40 @@
+name: .NET Core CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore JobPortPro.csproj
+      working-directory: .
+
+    - name: Build Application
+      run: dotnet build JobPortPro.csproj --configuration Release --no-restore
+      working-directory: .
+
+    - name: Publish Artifacts
+      run: dotnet publish JobPortPro.csproj --configuration Release --no-build --output ./publish
+      working-directory: .
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: jobportpro-publish-bundle
+        path: ./publish
+        retention-days: 7
