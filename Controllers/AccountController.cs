@@ -8,20 +8,19 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
 using JobPortPro.Models;
+using JobPortPro.Services;
 
 namespace JobPortPro.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IAuthService _authService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public AccountController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment)
+        public AccountController(IAuthService authService, IWebHostEnvironment webHostEnvironment)
         {
-            _context = context;
+            _authService = authService;
             _webHostEnvironment = webHostEnvironment;
         }
 
@@ -48,62 +47,26 @@ namespace JobPortPro.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Check if email already exists
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
-                if (existingUser != null)
+                var (success, errorMessage, user) = await _authService.RegisterAsync(model);
+                if (!success)
                 {
-                    ModelState.AddModelError("Email", "An account with this email already exists.");
+                    ModelState.AddModelError("Email", errorMessage);
                     return View(model);
                 }
 
-                // Create user
-                var user = new User
+                if (user != null)
                 {
-                    FullName = model.FullName.Trim(),
-                    Email = model.Email.Trim().ToLower(),
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
-                    Role = model.Role == "Employer" ? "Employer" : "JobSeeker",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    await SignInUserAsync(user, false);
+                    TempData["SuccessMessage"] = $"Welcome to JobPortPro, {user.FullName}! Your account has been created.";
 
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-
-                // Create profile based on role
-                if (user.Role == "Employer")
-                {
-                    var companyProfile = new CompanyProfile
+                    if (user.Role == "Employer")
                     {
-                        UserId = user.Id,
-                        CompanyName = !string.IsNullOrWhiteSpace(model.CompanyName) ? model.CompanyName.Trim() : $"{model.FullName}'s Company",
-                        Location = "Not Specified"
-                    };
-                    _context.CompanyProfiles.Add(companyProfile);
-                }
-                else
-                {
-                    var seekerProfile = new JobSeekerProfile
+                        return RedirectToAction("Dashboard", "Employer");
+                    }
+                    else
                     {
-                        UserId = user.Id,
-                        Headline = "Job Seeker"
-                    };
-                    _context.JobSeekerProfiles.Add(seekerProfile);
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Sign in user
-                await SignInUserAsync(user, false);
-
-                TempData["SuccessMessage"] = $"Welcome to JobPortPro, {user.FullName}! Your account has been created.";
-
-                if (user.Role == "Employer")
-                {
-                    return RedirectToAction("Dashboard", "Employer");
-                }
-                else
-                {
-                    return RedirectToAction("Dashboard", "JobSeeker");
+                        return RedirectToAction("Dashboard", "JobSeeker");
+                    }
                 }
             }
 
@@ -130,12 +93,9 @@ namespace JobPortPro.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = await _context.Users
-                    .Include(u => u.CompanyProfile)
-                    .Include(u => u.JobSeekerProfile)
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.Trim().ToLower());
+                var user = await _authService.ValidateCredentialsAsync(model.Email, model.Password);
 
-                if (user != null && BCrypt.Net.BCrypt.Verify(model.Password, user.PasswordHash))
+                if (user != null)
                 {
                     await SignInUserAsync(user, model.RememberMe);
                     TempData["SuccessMessage"] = $"Welcome back, {user.FullName}!";
@@ -177,10 +137,7 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> Profile()
         {
             int userId = GetCurrentUserId();
-            var user = await _context.Users
-                .Include(u => u.CompanyProfile)
-                .Include(u => u.JobSeekerProfile)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _authService.GetUserByIdAsync(userId);
 
             if (user == null)
             {
@@ -229,10 +186,7 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> Profile(ProfileViewModel model)
         {
             int userId = GetCurrentUserId();
-            var user = await _context.Users
-                .Include(u => u.CompanyProfile)
-                .Include(u => u.JobSeekerProfile)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _authService.GetUserByIdAsync(userId);
 
             if (user == null)
             {
@@ -241,9 +195,9 @@ namespace JobPortPro.Controllers
 
             if (ModelState.IsValid)
             {
-                user.FullName = model.FullName.Trim();
-                user.PhoneNumber = model.PhoneNumber?.Trim();
-                user.Bio = model.Bio?.Trim();
+                string? avatarPath = null;
+                string? resumePath = null;
+                string? resumeFileName = null;
 
                 // Handle Profile Picture upload
                 if (model.ProfilePictureFile != null && model.ProfilePictureFile.Length > 0)
@@ -256,59 +210,31 @@ namespace JobPortPro.Controllers
                     {
                         await model.ProfilePictureFile.CopyToAsync(fileStream);
                     }
-                    user.ProfilePicture = $"/uploads/avatars/{uniqueFileName}";
+                    avatarPath = $"/uploads/avatars/{uniqueFileName}";
                 }
 
-                if (user.Role == "JobSeeker")
+                // Handle Resume upload for JobSeeker
+                if (user.Role == "JobSeeker" && model.ResumeUpload != null && model.ResumeUpload.Length > 0)
                 {
-                    if (user.JobSeekerProfile == null)
+                    string resumeFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "resumes");
+                    Directory.CreateDirectory(resumeFolder);
+                    string uniqueResumeName = $"{Guid.NewGuid()}_{Path.GetFileName(model.ResumeUpload.FileName)}";
+                    string resumeFilePath = Path.Combine(resumeFolder, uniqueResumeName);
+                    using (var fileStream = new FileStream(resumeFilePath, FileMode.Create))
                     {
-                        user.JobSeekerProfile = new JobSeekerProfile { UserId = user.Id };
-                        _context.JobSeekerProfiles.Add(user.JobSeekerProfile);
+                        await model.ResumeUpload.CopyToAsync(fileStream);
                     }
-
-                    user.JobSeekerProfile.Headline = model.Headline?.Trim();
-                    user.JobSeekerProfile.Skills = model.Skills?.Trim();
-                    user.JobSeekerProfile.ExperienceYears = model.ExperienceYears;
-                    user.JobSeekerProfile.Education = model.Education?.Trim();
-                    user.JobSeekerProfile.GitHubUrl = model.GitHubUrl?.Trim();
-                    user.JobSeekerProfile.LinkedInUrl = model.LinkedInUrl?.Trim();
-
-                    // Handle Resume Upload
-                    if (model.ResumeUpload != null && model.ResumeUpload.Length > 0)
-                    {
-                        string resumeFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "resumes");
-                        Directory.CreateDirectory(resumeFolder);
-                        string uniqueResumeName = $"{Guid.NewGuid()}_{Path.GetFileName(model.ResumeUpload.FileName)}";
-                        string resumeFilePath = Path.Combine(resumeFolder, uniqueResumeName);
-                        using (var fileStream = new FileStream(resumeFilePath, FileMode.Create))
-                        {
-                            await model.ResumeUpload.CopyToAsync(fileStream);
-                        }
-                        user.JobSeekerProfile.ResumeFileName = model.ResumeUpload.FileName;
-                        user.JobSeekerProfile.ResumeFilePath = $"/uploads/resumes/{uniqueResumeName}";
-                    }
+                    resumeFileName = model.ResumeUpload.FileName;
+                    resumePath = $"/uploads/resumes/{uniqueResumeName}";
                 }
-                else if (user.Role == "Employer")
+
+                await _authService.UpdateProfileAsync(userId, model, avatarPath, resumePath, resumeFileName);
+
+                user = await _authService.GetUserByIdAsync(userId);
+                if (user != null)
                 {
-                    if (user.CompanyProfile == null)
-                    {
-                        user.CompanyProfile = new CompanyProfile { UserId = user.Id };
-                        _context.CompanyProfiles.Add(user.CompanyProfile);
-                    }
-
-                    user.CompanyProfile.CompanyName = model.CompanyName?.Trim() ?? $"{user.FullName}'s Company";
-                    user.CompanyProfile.Description = model.CompanyDescription?.Trim();
-                    user.CompanyProfile.Website = model.Website?.Trim();
-                    user.CompanyProfile.Location = model.CompanyLocation?.Trim();
-                    user.CompanyProfile.Industry = model.Industry?.Trim();
-                    user.CompanyProfile.CompanySize = model.CompanySize?.Trim();
+                    await SignInUserAsync(user, true);
                 }
-
-                await _context.SaveChangesAsync();
-
-                // Re-sign in to update claim name if it changed
-                await SignInUserAsync(user, true);
 
                 TempData["SuccessMessage"] = "Your profile has been updated successfully!";
                 return RedirectToAction(nameof(Profile));

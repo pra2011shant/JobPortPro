@@ -1,23 +1,23 @@
 using System;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
 using JobPortPro.Models;
+using JobPortPro.Services;
 
 namespace JobPortPro.Controllers
 {
     [Authorize(Roles = "Employer")]
     public class EmployerController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IJobService _jobService;
+        private readonly IApplicationService _applicationService;
 
-        public EmployerController(ApplicationDbContext context)
+        public EmployerController(IJobService jobService, IApplicationService applicationService)
         {
-            _context = context;
+            _jobService = jobService;
+            _applicationService = applicationService;
         }
 
         // GET: /Employer/Dashboard
@@ -25,29 +25,17 @@ namespace JobPortPro.Controllers
         {
             int employerId = GetCurrentUserId();
 
-            var postedJobs = await _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Applications)
-                .Where(j => j.EmployerId == employerId)
-                .OrderByDescending(j => j.CreatedAt)
-                .ToListAsync();
-
-            var applications = await _context.JobApplications
-                .Include(a => a.Job)
-                .Include(a => a.JobSeeker)
-                    .ThenInclude(u => u!.JobSeekerProfile)
-                .Where(a => a.Job != null && a.Job.EmployerId == employerId)
-                .OrderByDescending(a => a.AppliedAt)
-                .ToListAsync();
+            var postedJobs = await _jobService.GetJobsByEmployerAsync(employerId);
+            var applications = await _applicationService.GetApplicationsByEmployerAsync(employerId);
 
             var model = new EmployerDashboardViewModel
             {
                 TotalJobsPosted = postedJobs.Count,
-                ActiveJobs = postedJobs.Count(j => j.IsActive),
+                ActiveJobs = postedJobs.FindAll(j => j.IsActive).Count,
                 TotalApplications = applications.Count,
-                ShortlistedApplications = applications.Count(a => a.Status == "Shortlisted" || a.Status == "Accepted"),
-                RecentJobs = postedJobs.Take(5).ToList(),
-                RecentApplications = applications.Take(5).ToList()
+                ShortlistedApplications = applications.FindAll(a => a.Status == "Shortlisted" || a.Status == "Accepted").Count,
+                RecentJobs = postedJobs.Count > 5 ? postedJobs.GetRange(0, 5) : postedJobs,
+                RecentApplications = applications.Count > 5 ? applications.GetRange(0, 5) : applications
             };
 
             return View(model);
@@ -57,22 +45,7 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> ManageJobs(string? status)
         {
             int employerId = GetCurrentUserId();
-
-            var query = _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Applications)
-                .Where(j => j.EmployerId == employerId);
-
-            if (status == "active")
-            {
-                query = query.Where(j => j.IsActive);
-            }
-            else if (status == "inactive")
-            {
-                query = query.Where(j => !j.IsActive);
-            }
-
-            var jobs = await query.OrderByDescending(j => j.CreatedAt).ToListAsync();
+            var jobs = await _jobService.GetJobsByEmployerAsync(employerId, status);
             ViewBag.CurrentStatus = status;
             return View(jobs);
         }
@@ -81,7 +54,7 @@ namespace JobPortPro.Controllers
         [HttpGet]
         public async Task<IActionResult> PostJob()
         {
-            var categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            var categories = await _jobService.GetAllCategoriesAsync();
             var model = new PostJobViewModel
             {
                 AvailableCategories = categories,
@@ -99,32 +72,12 @@ namespace JobPortPro.Controllers
 
             if (ModelState.IsValid)
             {
-                var job = new Job
-                {
-                    EmployerId = employerId,
-                    Title = model.Title.Trim(),
-                    CategoryId = model.CategoryId,
-                    JobType = model.JobType,
-                    Location = model.Location.Trim(),
-                    SalaryMin = model.SalaryMin,
-                    SalaryMax = model.SalaryMax,
-                    ExperienceLevel = model.ExperienceLevel,
-                    Description = model.Description.Trim(),
-                    Requirements = model.Requirements?.Trim(),
-                    Responsibilities = model.Responsibilities?.Trim(),
-                    IsActive = model.IsActive,
-                    CreatedAt = DateTime.UtcNow,
-                    Deadline = model.Deadline
-                };
-
-                _context.Jobs.Add(job);
-                await _context.SaveChangesAsync();
-
+                var job = await _jobService.CreateJobAsync(employerId, model);
                 TempData["SuccessMessage"] = $"Job posting '{job.Title}' has been published successfully!";
                 return RedirectToAction(nameof(ManageJobs));
             }
 
-            model.AvailableCategories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            model.AvailableCategories = await _jobService.GetAllCategoriesAsync();
             return View(model);
         }
 
@@ -133,14 +86,14 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> EditJob(int id)
         {
             int employerId = GetCurrentUserId();
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == id && j.EmployerId == employerId);
+            var job = await _jobService.GetJobByIdAsync(id);
 
-            if (job == null)
+            if (job == null || job.EmployerId != employerId)
             {
                 return NotFound();
             }
 
-            var categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            var categories = await _jobService.GetAllCategoriesAsync();
             var model = new PostJobViewModel
             {
                 Id = job.Id,
@@ -167,41 +120,20 @@ namespace JobPortPro.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditJob(PostJobViewModel model)
         {
-            if (!model.Id.HasValue)
-            {
-                return NotFound();
-            }
+            if (!model.Id.HasValue) return NotFound();
 
             int employerId = GetCurrentUserId();
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == model.Id.Value && j.EmployerId == employerId);
-
-            if (job == null)
-            {
-                return NotFound();
-            }
 
             if (ModelState.IsValid)
             {
-                job.Title = model.Title.Trim();
-                job.CategoryId = model.CategoryId;
-                job.JobType = model.JobType;
-                job.Location = model.Location.Trim();
-                job.SalaryMin = model.SalaryMin;
-                job.SalaryMax = model.SalaryMax;
-                job.ExperienceLevel = model.ExperienceLevel;
-                job.Description = model.Description.Trim();
-                job.Requirements = model.Requirements?.Trim();
-                job.Responsibilities = model.Responsibilities?.Trim();
-                job.IsActive = model.IsActive;
-                job.Deadline = model.Deadline;
+                bool updated = await _jobService.UpdateJobAsync(employerId, model);
+                if (!updated) return NotFound();
 
-                await _context.SaveChangesAsync();
-
-                TempData["SuccessMessage"] = $"Job posting '{job.Title}' updated successfully!";
+                TempData["SuccessMessage"] = $"Job posting '{model.Title}' updated successfully!";
                 return RedirectToAction(nameof(ManageJobs));
             }
 
-            model.AvailableCategories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            model.AvailableCategories = await _jobService.GetAllCategoriesAsync();
             return View(model);
         }
 
@@ -211,13 +143,10 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> ToggleJobStatus(int id)
         {
             int employerId = GetCurrentUserId();
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == id && j.EmployerId == employerId);
-
-            if (job != null)
+            bool toggled = await _jobService.ToggleJobStatusAsync(employerId, id);
+            if (toggled)
             {
-                job.IsActive = !job.IsActive;
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Job '{job.Title}' status changed to {(job.IsActive ? "Active" : "Closed")}.";
+                TempData["SuccessMessage"] = "Job status updated successfully.";
             }
 
             return RedirectToAction(nameof(ManageJobs));
@@ -229,13 +158,10 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> DeleteJob(int id)
         {
             int employerId = GetCurrentUserId();
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == id && j.EmployerId == employerId);
-
-            if (job != null)
+            bool deleted = await _jobService.DeleteJobAsync(employerId, id);
+            if (deleted)
             {
-                _context.Jobs.Remove(job);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Job '{job.Title}' has been deleted.";
+                TempData["SuccessMessage"] = "Job posting has been deleted.";
             }
 
             return RedirectToAction(nameof(ManageJobs));
@@ -245,29 +171,8 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> Applicants(int? jobId, string? status)
         {
             int employerId = GetCurrentUserId();
-
-            var query = _context.JobApplications
-                .Include(a => a.Job)
-                .Include(a => a.JobSeeker)
-                    .ThenInclude(u => u!.JobSeekerProfile)
-                .Where(a => a.Job != null && a.Job.EmployerId == employerId);
-
-            if (jobId.HasValue && jobId.Value > 0)
-            {
-                query = query.Where(a => a.JobId == jobId.Value);
-            }
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                query = query.Where(a => a.Status == status);
-            }
-
-            var applications = await query.OrderByDescending(a => a.AppliedAt).ToListAsync();
-
-            var employerJobs = await _context.Jobs
-                .Where(j => j.EmployerId == employerId)
-                .OrderByDescending(j => j.CreatedAt)
-                .ToListAsync();
+            var applications = await _applicationService.GetApplicationsByEmployerAsync(employerId, jobId, status);
+            var employerJobs = await _jobService.GetJobsByEmployerAsync(employerId);
 
             ViewBag.EmployerJobs = employerJobs;
             ViewBag.SelectedJobId = jobId;
@@ -280,23 +185,11 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> ApplicantDetail(int id)
         {
             int employerId = GetCurrentUserId();
-
-            var app = await _context.JobApplications
-                .Include(a => a.Job)
-                .Include(a => a.JobSeeker)
-                    .ThenInclude(u => u!.JobSeekerProfile)
-                .FirstOrDefaultAsync(a => a.Id == id && a.Job != null && a.Job.EmployerId == employerId);
+            var app = await _applicationService.GetApplicationDetailAsync(employerId, id);
 
             if (app == null)
             {
                 return NotFound();
-            }
-
-            // Auto-mark as "Reviewed" if it was "Pending"
-            if (app.Status == "Pending")
-            {
-                app.Status = "Reviewed";
-                await _context.SaveChangesAsync();
             }
 
             var model = new ApplicantDetailViewModel
@@ -330,19 +223,10 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> UpdateApplicationStatus(int applicationId, string status, string? notes)
         {
             int employerId = GetCurrentUserId();
+            bool updated = await _applicationService.UpdateApplicationStatusAsync(employerId, applicationId, status, notes);
 
-            var app = await _context.JobApplications
-                .Include(a => a.Job)
-                .FirstOrDefaultAsync(a => a.Id == applicationId && a.Job != null && a.Job.EmployerId == employerId);
-
-            if (app != null)
+            if (updated)
             {
-                app.Status = status;
-                if (!string.IsNullOrEmpty(notes))
-                {
-                    app.EmployerNotes = notes;
-                }
-                await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = $"Applicant status successfully updated to '{status}'!";
             }
 

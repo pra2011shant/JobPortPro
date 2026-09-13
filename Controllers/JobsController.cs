@@ -1,25 +1,31 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
 using JobPortPro.Models;
+using JobPortPro.Services;
 
 namespace JobPortPro.Controllers
 {
     public class JobsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IJobService _jobService;
+        private readonly IApplicationService _applicationService;
+        private readonly IAuthService _authService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public JobsController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment)
+        public JobsController(
+            IJobService jobService,
+            IApplicationService applicationService,
+            IAuthService authService,
+            IWebHostEnvironment webHostEnvironment)
         {
-            _context = context;
+            _jobService = jobService;
+            _applicationService = applicationService;
+            _authService = authService;
             _webHostEnvironment = webHostEnvironment;
         }
 
@@ -34,87 +40,8 @@ namespace JobPortPro.Controllers
             string? sortBy = "newest",
             int page = 1)
         {
-            var query = _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(q))
-            {
-                string searchLower = q.Trim().ToLower();
-                query = query.Where(j =>
-                    j.Title.ToLower().Contains(searchLower) ||
-                    j.Description.ToLower().Contains(searchLower) ||
-                    (j.Requirements != null && j.Requirements.ToLower().Contains(searchLower)) ||
-                    (j.Employer != null && j.Employer.CompanyProfile != null && j.Employer.CompanyProfile.CompanyName.ToLower().Contains(searchLower)));
-            }
-
-            if (categoryId.HasValue && categoryId.Value > 0)
-            {
-                query = query.Where(j => j.CategoryId == categoryId.Value);
-            }
-
-            if (!string.IsNullOrWhiteSpace(jobType))
-            {
-                query = query.Where(j => j.JobType == jobType);
-            }
-
-            if (!string.IsNullOrWhiteSpace(location))
-            {
-                query = query.Where(j => j.Location.ToLower().Contains(location.Trim().ToLower()));
-            }
-
-            if (!string.IsNullOrWhiteSpace(experienceLevel))
-            {
-                query = query.Where(j => j.ExperienceLevel == experienceLevel);
-            }
-
-            if (minSalary.HasValue && minSalary.Value > 0)
-            {
-                query = query.Where(j => j.SalaryMax >= minSalary.Value || j.SalaryMin >= minSalary.Value);
-            }
-
-            // Sorting
-            query = sortBy switch
-            {
-                "salary_high" => query.OrderByDescending(j => j.SalaryMax ?? j.SalaryMin ?? 0),
-                "salary_low" => query.OrderBy(j => j.SalaryMin ?? j.SalaryMax ?? 0),
-                _ => query.OrderByDescending(j => j.CreatedAt)
-            };
-
-            int pageSize = 9;
-            int totalItems = await query.CountAsync();
-            var jobs = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            var categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
-            var locations = await _context.Jobs
-                .Where(j => j.IsActive && !string.IsNullOrEmpty(j.Location))
-                .Select(j => j.Location)
-                .Distinct()
-                .Take(15)
-                .ToListAsync();
-
-            var model = new JobFilterViewModel
-            {
-                Query = q,
-                CategoryId = categoryId,
-                JobType = jobType,
-                Location = location,
-                ExperienceLevel = experienceLevel,
-                MinSalary = minSalary,
-                SortBy = sortBy,
-                Page = page,
-                PageSize = pageSize,
-                TotalItems = totalItems,
-                Jobs = jobs,
-                Categories = categories,
-                Locations = locations
-            };
+            var model = await _jobService.GetFilteredJobsAsync(
+                q, categoryId, jobType, location, experienceLevel, minSalary, sortBy, page, 9);
 
             return View(model);
         }
@@ -122,13 +49,7 @@ namespace JobPortPro.Controllers
         // GET: /Jobs/Details/5
         public async Task<IActionResult> Details(int id)
         {
-            var job = await _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Include(j => j.Applications)
-                .FirstOrDefaultAsync(j => j.Id == id);
-
+            var job = await _jobService.GetJobByIdAsync(id);
             if (job == null)
             {
                 return NotFound();
@@ -140,23 +61,13 @@ namespace JobPortPro.Controllers
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
                 int userId = GetCurrentUserId();
-                hasApplied = await _context.JobApplications.AnyAsync(a => a.JobId == id && a.JobSeekerId == userId);
-                isSaved = await _context.SavedJobs.AnyAsync(s => s.JobId == id && s.JobSeekerId == userId);
+                hasApplied = await _applicationService.HasUserAppliedAsync(userId, id);
+                isSaved = await _jobService.IsJobSavedAsync(userId, id);
             }
 
             ViewBag.HasApplied = hasApplied;
             ViewBag.IsSaved = isSaved;
-
-            // Related jobs in same category
-            var relatedJobs = await _context.Jobs
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.CategoryId == job.CategoryId && j.Id != job.Id && j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(3)
-                .ToListAsync();
-
-            ViewBag.RelatedJobs = relatedJobs;
+            ViewBag.RelatedJobs = await _jobService.GetRelatedJobsAsync(job.CategoryId, job.Id, 3);
 
             return View(job);
         }
@@ -166,25 +77,22 @@ namespace JobPortPro.Controllers
         [HttpGet]
         public async Task<IActionResult> Apply(int id)
         {
-            var job = await _context.Jobs
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .FirstOrDefaultAsync(j => j.Id == id && j.IsActive);
-
-            if (job == null)
+            var job = await _jobService.GetJobByIdAsync(id);
+            if (job == null || !job.IsActive)
             {
                 return NotFound();
             }
 
             int userId = GetCurrentUserId();
-            bool alreadyApplied = await _context.JobApplications.AnyAsync(a => a.JobId == id && a.JobSeekerId == userId);
+            bool alreadyApplied = await _applicationService.HasUserAppliedAsync(userId, id);
             if (alreadyApplied)
             {
                 TempData["WarningMessage"] = "You have already applied for this job.";
                 return RedirectToAction(nameof(Details), new { id });
             }
 
-            var seekerProfile = await _context.JobSeekerProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+            var user = await _authService.GetUserByIdAsync(userId);
+            var seekerProfile = user?.JobSeekerProfile;
 
             var model = new ApplyJobViewModel
             {
@@ -205,25 +113,22 @@ namespace JobPortPro.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Apply(ApplyJobViewModel model)
         {
-            var job = await _context.Jobs
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .FirstOrDefaultAsync(j => j.Id == model.JobId && j.IsActive);
-
-            if (job == null)
+            var job = await _jobService.GetJobByIdAsync(model.JobId);
+            if (job == null || !job.IsActive)
             {
                 return NotFound();
             }
 
             int userId = GetCurrentUserId();
-            bool alreadyApplied = await _context.JobApplications.AnyAsync(a => a.JobId == model.JobId && a.JobSeekerId == userId);
+            bool alreadyApplied = await _applicationService.HasUserAppliedAsync(userId, model.JobId);
             if (alreadyApplied)
             {
                 TempData["WarningMessage"] = "You have already submitted an application for this position.";
                 return RedirectToAction(nameof(Details), new { id = model.JobId });
             }
 
-            var seekerProfile = await _context.JobSeekerProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+            var user = await _authService.GetUserByIdAsync(userId);
+            var seekerProfile = user?.JobSeekerProfile;
 
             string resumePath = string.Empty;
             string resumeFileName = string.Empty;
@@ -245,13 +150,6 @@ namespace JobPortPro.Controllers
                 }
                 resumePath = $"/uploads/resumes/{uniqueFileName}";
                 resumeFileName = model.ResumeFile.FileName;
-
-                // Update profile resume if not already set
-                if (seekerProfile != null && string.IsNullOrEmpty(seekerProfile.ResumeFilePath))
-                {
-                    seekerProfile.ResumeFilePath = resumePath;
-                    seekerProfile.ResumeFileName = resumeFileName;
-                }
             }
             else
             {
@@ -263,19 +161,7 @@ namespace JobPortPro.Controllers
                 return View(model);
             }
 
-            var application = new JobApplication
-            {
-                JobId = model.JobId,
-                JobSeekerId = userId,
-                CoverLetter = model.CoverLetter?.Trim(),
-                ResumePath = resumePath,
-                ResumeFileName = resumeFileName,
-                AppliedAt = DateTime.UtcNow,
-                Status = "Pending"
-            };
-
-            _context.JobApplications.Add(application);
-            await _context.SaveChangesAsync();
+            await _applicationService.SubmitApplicationAsync(userId, model, resumePath, resumeFileName);
 
             TempData["SuccessMessage"] = $"Your application for '{job.Title}' has been submitted successfully!";
             return RedirectToAction("AppliedJobs", "JobSeeker");
@@ -288,25 +174,15 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> ToggleSave(int id, string? returnUrl = null)
         {
             int userId = GetCurrentUserId();
-            var saved = await _context.SavedJobs.FirstOrDefaultAsync(s => s.JobId == id && s.JobSeekerId == userId);
+            bool added = await _jobService.ToggleSavedJobAsync(userId, id);
 
-            if (saved != null)
+            if (added)
             {
-                _context.SavedJobs.Remove(saved);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Job removed from your saved bookmarks.";
+                TempData["SuccessMessage"] = "Job saved to your bookmarks!";
             }
             else
             {
-                var newSave = new SavedJob
-                {
-                    JobId = id,
-                    JobSeekerId = userId,
-                    SavedAt = DateTime.UtcNow
-                };
-                _context.SavedJobs.Add(newSave);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Job saved to your bookmarks!";
+                TempData["SuccessMessage"] = "Job removed from your saved bookmarks.";
             }
 
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))

@@ -1,23 +1,23 @@
 using System;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
 using JobPortPro.Models;
+using JobPortPro.Services;
 
 namespace JobPortPro.Controllers
 {
     [Authorize(Roles = "JobSeeker")]
     public class JobSeekerController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IJobService _jobService;
+        private readonly IApplicationService _applicationService;
 
-        public JobSeekerController(ApplicationDbContext context)
+        public JobSeekerController(IJobService jobService, IApplicationService applicationService)
         {
-            _context = context;
+            _jobService = jobService;
+            _applicationService = applicationService;
         }
 
         // GET: /JobSeeker/Dashboard
@@ -25,46 +25,19 @@ namespace JobPortPro.Controllers
         {
             int seekerId = GetCurrentUserId();
 
-            var applications = await _context.JobApplications
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(a => a.JobSeekerId == seekerId)
-                .OrderByDescending(a => a.AppliedAt)
-                .ToListAsync();
-
-            var savedJobs = await _context.SavedJobs
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(s => s.JobSeekerId == seekerId)
-                .OrderByDescending(s => s.SavedAt)
-                .ToListAsync();
-
-            var appliedJobIds = applications.Select(a => a.JobId).ToList();
-
-            var recommendedJobs = await _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive && !appliedJobIds.Contains(j.Id))
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(4)
-                .ToListAsync();
+            var applications = await _applicationService.GetApplicationsBySeekerAsync(seekerId);
+            var savedJobs = await _jobService.GetSavedJobsAsync(seekerId);
+            var featuredJobs = await _jobService.GetFeaturedJobsAsync(4);
 
             var model = new JobSeekerDashboardViewModel
             {
                 TotalApplications = applications.Count,
-                PendingApplications = applications.Count(a => a.Status == "Pending" || a.Status == "Reviewed"),
-                ShortlistedApplications = applications.Count(a => a.Status == "Shortlisted" || a.Status == "Accepted"),
+                PendingApplications = applications.FindAll(a => a.Status == "Pending" || a.Status == "Reviewed").Count,
+                ShortlistedApplications = applications.FindAll(a => a.Status == "Shortlisted" || a.Status == "Accepted").Count,
                 SavedJobsCount = savedJobs.Count,
-                RecentApplications = applications.Take(5).ToList(),
-                SavedJobs = savedJobs.Take(4).ToList(),
-                RecommendedJobs = recommendedJobs
+                RecentApplications = applications.Count > 5 ? applications.GetRange(0, 5) : applications,
+                SavedJobs = savedJobs.Count > 4 ? savedJobs.GetRange(0, 4) : savedJobs,
+                RecommendedJobs = featuredJobs
             };
 
             return View(model);
@@ -74,23 +47,8 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> AppliedJobs(string? status)
         {
             int seekerId = GetCurrentUserId();
-
-            var query = _context.JobApplications
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(a => a.JobSeekerId == seekerId);
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                query = query.Where(a => a.Status == status);
-            }
-
-            var applications = await query.OrderByDescending(a => a.AppliedAt).ToListAsync();
+            var applications = await _applicationService.GetApplicationsBySeekerAsync(seekerId, status);
             ViewBag.CurrentStatus = status;
-
             return View(applications);
         }
 
@@ -98,17 +56,7 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> SavedJobs()
         {
             int seekerId = GetCurrentUserId();
-
-            var savedJobs = await _context.SavedJobs
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(s => s.JobSeekerId == seekerId)
-                .OrderByDescending(s => s.SavedAt)
-                .ToListAsync();
-
+            var savedJobs = await _jobService.GetSavedJobsAsync(seekerId);
             return View(savedJobs);
         }
 
@@ -118,16 +66,11 @@ namespace JobPortPro.Controllers
         public async Task<IActionResult> WithdrawApplication(int id)
         {
             int seekerId = GetCurrentUserId();
+            bool withdrawn = await _applicationService.WithdrawApplicationAsync(seekerId, id);
 
-            var app = await _context.JobApplications
-                .Include(a => a.Job)
-                .FirstOrDefaultAsync(a => a.Id == id && a.JobSeekerId == seekerId);
-
-            if (app != null)
+            if (withdrawn)
             {
-                _context.JobApplications.Remove(app);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = $"Your application for '{app.Job?.Title}' has been withdrawn.";
+                TempData["SuccessMessage"] = "Your application has been withdrawn.";
             }
 
             return RedirectToAction(nameof(AppliedJobs));
