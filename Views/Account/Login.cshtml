@@ -56,22 +56,6 @@
                         </button>
                     </form>
 
-                    <!-- Quick Demo Credentials Box -->
-                    <div class="card bg-light border-0 rounded-3 p-3 mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <i class="fa-solid fa-key text-warning"></i>
-                            <span class="small fw-bold text-dark">One-Click Demo Accounts</span>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary flex-fill" onclick="fillCredentials('employer@techsolutions.com', 'Password123!')">
-                                <i class="fa-solid fa-building me-1"></i> Demo Employer
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-success flex-fill" onclick="fillCredentials('rahul.verma@example.com', 'Password123!')">
-                                <i class="fa-solid fa-user me-1"></i> Demo Seeker
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="text-center">
                         <p class="small text-muted mb-0">Don't have an account? 
                             <a asp-action="Register" class="text-primary fw-semibold text-decoration-none">Create Account</a>
@@ -86,11 +70,6 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        function fillCredentials(email, password) {
-            document.getElementById('loginEmail').value = email;
-            document.getElementById('loginPassword').value = password;
-        }
-
         function togglePasswordVisibility(fieldId, btn) {
             const field = document.getElementById(fieldId);
             const icon = btn.querySelector('i');
