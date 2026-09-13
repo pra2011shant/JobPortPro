@@ -14,6 +14,8 @@ namespace JobPortPro.Data
         public DbSet<CompanyProfile> CompanyProfiles { get; set; }
         public DbSet<JobSeekerProfile> JobSeekerProfiles { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<JobType> JobTypes { get; set; }
+        public DbSet<ExperienceLevel> ExperienceLevels { get; set; }
         public DbSet<Job> Jobs { get; set; }
         public DbSet<JobApplication> JobApplications { get; set; }
         public DbSet<SavedJob> SavedJobs { get; set; }
@@ -21,6 +23,19 @@ namespace JobPortPro.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // User - Indexes & Constraints
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<JobType>()
+                .HasIndex(jt => jt.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<ExperienceLevel>()
+                .HasIndex(el => el.Code)
+                .IsUnique();
 
             // User - CompanyProfile (1:1)
             modelBuilder.Entity<CompanyProfile>()
@@ -50,6 +65,33 @@ namespace JobPortPro.Data
                 .HasForeignKey(j => j.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // JobType - Job (1:N)
+            modelBuilder.Entity<Job>()
+                .HasOne(j => j.JobTypeEntity)
+                .WithMany(jt => jt.Jobs)
+                .HasForeignKey(j => j.JobTypeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ExperienceLevel - Job (1:N)
+            modelBuilder.Entity<Job>()
+                .HasOne(j => j.ExperienceLevelEntity)
+                .WithMany(el => el.Jobs)
+                .HasForeignKey(j => j.ExperienceLevelId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes on Job for super fast queries
+            modelBuilder.Entity<Job>()
+                .HasIndex(j => j.CategoryId);
+
+            modelBuilder.Entity<Job>()
+                .HasIndex(j => j.IsActive);
+
+            modelBuilder.Entity<Job>()
+                .HasIndex(j => j.CreatedAt);
+
+            modelBuilder.Entity<Job>()
+                .HasIndex(j => j.Location);
+
             // JobApplication
             modelBuilder.Entity<JobApplication>()
                 .HasOne(ja => ja.Job)
@@ -62,6 +104,9 @@ namespace JobPortPro.Data
                 .WithMany(u => u.Applications)
                 .HasForeignKey(ja => ja.JobSeekerId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<JobApplication>()
+                .HasIndex(ja => ja.Status);
 
             // SavedJob
             modelBuilder.Entity<SavedJob>()

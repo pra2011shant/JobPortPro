@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using JobPortPro.Data;
+using JobPortPro.Repositories;
 using JobPortPro.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,11 +16,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+// Add in-memory cache for fast, zero-latency master lookups
+builder.Services.AddMemoryCache();
+
 // Add DbContext with SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Register Application Services (Service / Repository Pattern)
+// Register Repository Pattern & Unit of Work (OOPs Abstraction)
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Register Application Services
+builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

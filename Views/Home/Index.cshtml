@@ -145,8 +145,8 @@
                             <div class="company-logo-box">
                                 @(job.Employer?.CompanyProfile?.CompanyName?.Substring(0, 1).ToUpper() ?? "C")
                             </div>
-                            <span class="badge @(job.JobType == "Remote" ? "badge-soft-success" : job.JobType == "Full-Time" ? "badge-soft-primary" : "badge-soft-warning") rounded-pill px-3 py-1">
-                                @job.JobType
+                            <span class="badge @((job.JobTypeEntity?.Name ?? job.JobType) == "Remote" ? "badge-soft-success" : (job.JobTypeEntity?.Name ?? job.JobType) == "Full-Time" ? "badge-soft-primary" : "badge-soft-warning") rounded-pill px-3 py-1">
+                                @(job.JobTypeEntity?.Name ?? job.JobType)
                             </span>
                         </div>
 

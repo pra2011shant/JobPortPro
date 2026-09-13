@@ -28,16 +28,16 @@
             </div>
             <div class="col">
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                    <span class="badge @(Model.JobType == "Remote" ? "badge-soft-success" : Model.JobType == "Full-Time" ? "badge-soft-primary" : "badge-soft-warning") rounded-pill px-3 py-1">
-                        @Model.JobType
+                    <span class="badge @((Model.JobTypeEntity?.Name ?? Model.JobType) == "Remote" ? "badge-soft-success" : (Model.JobTypeEntity?.Name ?? Model.JobType) == "Full-Time" ? "badge-soft-primary" : "badge-soft-warning") rounded-pill px-3 py-1">
+                        @(Model.JobTypeEntity?.Name ?? Model.JobType)
                     </span>
                     <span class="badge bg-light text-secondary rounded-pill border px-3 py-1">
                         @(Model.Category?.Name ?? "General")
                     </span>
-                    @if (!string.IsNullOrEmpty(Model.ExperienceLevel))
+                    @if (!string.IsNullOrEmpty(Model.ExperienceLevelEntity?.Title ?? Model.ExperienceLevel))
                     {
                         <span class="badge bg-light text-dark rounded-pill border px-3 py-1">
-                            @Model.ExperienceLevel
+                            @(Model.ExperienceLevelEntity?.Title ?? Model.ExperienceLevel)
                         </span>
                     }
                 </div>
@@ -148,14 +148,14 @@
                         <i class="fa-solid fa-business-time text-primary fs-5"></i>
                         <div>
                             <div class="text-muted">Employment Type</div>
-                            <div class="fw-semibold">@Model.JobType</div>
+                            <div class="fw-semibold">@(Model.JobTypeEntity?.Name ?? Model.JobType)</div>
                         </div>
                     </li>
                     <li class="d-flex align-items-center gap-3">
                         <i class="fa-solid fa-graduation-cap text-primary fs-5"></i>
                         <div>
                             <div class="text-muted">Experience Level</div>
-                            <div class="fw-semibold">@(Model.ExperienceLevel ?? "Any")</div>
+                            <div class="fw-semibold">@(Model.ExperienceLevelEntity?.Title ?? Model.ExperienceLevel ?? "Any")</div>
                         </div>
                     </li>
                     <li class="d-flex align-items-center gap-3">

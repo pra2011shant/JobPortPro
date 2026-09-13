@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class JobSeekerProfile
+    /// <summary>
+    /// Represents a Job Seeker's professional skills, resume, and portfolio profile.
+    /// </summary>
+    public class JobSeekerProfile : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         public int UserId { get; set; }
         [ForeignKey("UserId")]

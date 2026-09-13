@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class CompanyProfile
+    /// <summary>
+    /// Represents an Employer's registered enterprise profile.
+    /// </summary>
+    public class CompanyProfile : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         public int UserId { get; set; }
         [ForeignKey("UserId")]

@@ -25,7 +25,7 @@
                         <span asp-validation-for="Title" class="text-danger small"></span>
                     </div>
 
-                    <!-- Category & Job Type -->
+                    <!-- Category & Job Type (Dynamic from DB) -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label asp-for="CategoryId" class="form-label fw-semibold small text-muted"></label>
@@ -34,14 +34,7 @@
                                 {
                                     @foreach (var cat in Model.AvailableCategories)
                                     {
-                                        if (Model.CategoryId == cat.Id)
-                                        {
-                                            <option value="@cat.Id" selected>@cat.Name</option>
-                                        }
-                                        else
-                                        {
-                                            <option value="@cat.Id">@cat.Name</option>
-                                        }
+                                        <option value="@cat.Id" selected="@(Model.CategoryId == cat.Id)">@cat.Name</option>
                                     }
                                 }
                             </select>
@@ -51,17 +44,27 @@
                         <div class="col-md-6">
                             <label asp-for="JobType" class="form-label fw-semibold small text-muted"></label>
                             <select asp-for="JobType" class="form-select">
-                                <option value="Full-Time" selected="@(Model.JobType == "Full-Time")">Full-Time</option>
-                                <option value="Part-Time" selected="@(Model.JobType == "Part-Time")">Part-Time</option>
-                                <option value="Remote" selected="@(Model.JobType == "Remote")">Remote</option>
-                                <option value="Contract" selected="@(Model.JobType == "Contract")">Contract</option>
-                                <option value="Internship" selected="@(Model.JobType == "Internship")">Internship</option>
+                                @if (Model.AvailableJobTypes != null && Model.AvailableJobTypes.Any())
+                                {
+                                    @foreach (var jt in Model.AvailableJobTypes)
+                                    {
+                                        <option value="@jt.Name" selected="@(Model.JobType == jt.Name)">@jt.Name</option>
+                                    }
+                                }
+                                else
+                                {
+                                    <option value="Full-Time" selected="@(Model.JobType == "Full-Time")">Full-Time</option>
+                                    <option value="Remote" selected="@(Model.JobType == "Remote")">Remote</option>
+                                    <option value="Part-Time" selected="@(Model.JobType == "Part-Time")">Part-Time</option>
+                                    <option value="Contract" selected="@(Model.JobType == "Contract")">Contract</option>
+                                    <option value="Internship" selected="@(Model.JobType == "Internship")">Internship</option>
+                                }
                             </select>
                             <span asp-validation-for="JobType" class="text-danger small"></span>
                         </div>
                     </div>
 
-                    <!-- Location & Experience Level -->
+                    <!-- Location & Experience Level (Dynamic from DB) -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label asp-for="Location" class="form-label fw-semibold small text-muted"></label>
@@ -72,10 +75,20 @@
                         <div class="col-md-6">
                             <label asp-for="ExperienceLevel" class="form-label fw-semibold small text-muted"></label>
                             <select asp-for="ExperienceLevel" class="form-select">
-                                <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
-                                <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
-                                <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
-                                <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director / Executive</option>
+                                @if (Model.AvailableExperienceLevels != null && Model.AvailableExperienceLevels.Any())
+                                {
+                                    @foreach (var exp in Model.AvailableExperienceLevels)
+                                    {
+                                        <option value="@exp.Title" selected="@(Model.ExperienceLevel == exp.Title)">@exp.Title</option>
+                                    }
+                                }
+                                else
+                                {
+                                    <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
+                                    <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
+                                    <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
+                                    <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director / Executive</option>
+                                }
                             </select>
                             <span asp-validation-for="ExperienceLevel" class="text-danger small"></span>
                         </div>

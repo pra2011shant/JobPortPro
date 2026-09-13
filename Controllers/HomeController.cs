@@ -1,58 +1,50 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using JobPortPro.Data;
 using JobPortPro.Models;
+using JobPortPro.Services;
 
 namespace JobPortPro.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly IJobService _jobService;
+        private readonly ILookupService _lookupService;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<HomeController> _logger;
 
-        public HomeController(ApplicationDbContext context, ILogger<HomeController> logger)
+        public HomeController(
+            IJobService jobService,
+            ILookupService lookupService,
+            ApplicationDbContext context,
+            ILogger<HomeController> logger)
         {
+            _jobService = jobService;
+            _lookupService = lookupService;
             _context = context;
             _logger = logger;
         }
 
         public async Task<IActionResult> Index()
         {
-            var categories = await _context.Categories
-                .Include(c => c.Jobs.Where(j => j.IsActive))
-                .ToListAsync();
-
-            var featuredJobs = await _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(6)
-                .ToListAsync();
-
-            var recentJobs = await _context.Jobs
-                .Include(j => j.Category)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(4)
-                .ToListAsync();
+            var categories = await _lookupService.GetCategoriesAsync();
+            var jobTypes = await _lookupService.GetJobTypesAsync();
+            var featuredJobs = await _jobService.GetFeaturedJobsAsync(6);
+            var recentJobs = await _jobService.GetRecentJobsAsync(4);
 
             var model = new HomeIndexViewModel
             {
                 Categories = categories,
+                JobTypes = jobTypes,
                 FeaturedJobs = featuredJobs,
                 RecentJobs = recentJobs,
-                TotalJobs = await _context.Jobs.CountAsync(j => j.IsActive),
-                TotalCompanies = await _context.CompanyProfiles.CountAsync(),
-                TotalCandidates = await _context.Users.CountAsync(u => u.Role == "JobSeeker"),
-                TotalApplications = await _context.JobApplications.CountAsync()
+                TotalJobs = await _jobService.GetFilteredJobsAsync(null, null, null, null, null, null, null, 1, 1).ContinueWith(t => t.Result.TotalItems),
+                TotalCompanies = _context.CompanyProfiles.Count(),
+                TotalCandidates = _context.Users.Count(u => u.Role == "JobSeeker"),
+                TotalApplications = _context.JobApplications.Count()
             };
 
             return View(model);

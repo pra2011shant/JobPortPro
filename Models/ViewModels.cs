@@ -28,9 +28,8 @@ namespace JobPortPro.Models
 
         [Required(ErrorMessage = "Please select an account type")]
         [Display(Name = "I am a")]
-        public string Role { get; set; } = "JobSeeker"; // "JobSeeker" or "Employer"
+        public string Role { get; set; } = "JobSeeker";
 
-        // Optional company name if registering as employer
         [Display(Name = "Company Name (Employers only)")]
         public string? CompanyName { get; set; }
     }
@@ -59,7 +58,7 @@ namespace JobPortPro.Models
         public string? Location { get; set; }
         public string? ExperienceLevel { get; set; }
         public decimal? MinSalary { get; set; }
-        public string? SortBy { get; set; } = "newest"; // newest, salary_high, salary_low
+        public string? SortBy { get; set; } = "newest";
 
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 9;
@@ -68,7 +67,8 @@ namespace JobPortPro.Models
 
         public List<Job> Jobs { get; set; } = new List<Job>();
         public List<Category> Categories { get; set; } = new List<Category>();
-        public List<string> JobTypes { get; set; } = new List<string> { "Full-Time", "Part-Time", "Remote", "Contract", "Internship" };
+        public List<JobType> DynamicJobTypes { get; set; } = new List<JobType>();
+        public List<ExperienceLevel> DynamicExperienceLevels { get; set; } = new List<ExperienceLevel>();
         public List<string> Locations { get; set; } = new List<string>();
     }
 
@@ -85,6 +85,8 @@ namespace JobPortPro.Models
         [Display(Name = "Job Category")]
         public int CategoryId { get; set; }
 
+        public int? JobTypeId { get; set; }
+
         [Required(ErrorMessage = "Job Type is required")]
         [Display(Name = "Job Type")]
         public string JobType { get; set; } = "Full-Time";
@@ -93,11 +95,13 @@ namespace JobPortPro.Models
         [Display(Name = "Job Location")]
         public string Location { get; set; } = string.Empty;
 
-        [Display(Name = "Minimum Salary (Annual in ₹ or $)")]
+        [Display(Name = "Minimum Salary (Annual in ₹)")]
         public decimal? SalaryMin { get; set; }
 
-        [Display(Name = "Maximum Salary (Annual in ₹ or $)")]
+        [Display(Name = "Maximum Salary (Annual in ₹)")]
         public decimal? SalaryMax { get; set; }
+
+        public int? ExperienceLevelId { get; set; }
 
         [Display(Name = "Experience Level")]
         public string? ExperienceLevel { get; set; } = "Mid Level";
@@ -106,10 +110,10 @@ namespace JobPortPro.Models
         [Display(Name = "Job Description")]
         public string Description { get; set; } = string.Empty;
 
-        [Display(Name = "Key Requirements / Qualifications (One per line or paragraph)")]
+        [Display(Name = "Key Requirements / Qualifications")]
         public string? Requirements { get; set; }
 
-        [Display(Name = "Responsibilities (One per line or paragraph)")]
+        [Display(Name = "Responsibilities")]
         public string? Responsibilities { get; set; }
 
         [Display(Name = "Application Deadline")]
@@ -120,6 +124,8 @@ namespace JobPortPro.Models
         public bool IsActive { get; set; } = true;
 
         public List<Category>? AvailableCategories { get; set; }
+        public List<JobType>? AvailableJobTypes { get; set; }
+        public List<ExperienceLevel>? AvailableExperienceLevels { get; set; }
     }
 
     public class ApplyJobViewModel
@@ -254,6 +260,7 @@ namespace JobPortPro.Models
     public class HomeIndexViewModel
     {
         public List<Category> Categories { get; set; } = new List<Category>();
+        public List<JobType> JobTypes { get; set; } = new List<JobType>();
         public List<Job> FeaturedJobs { get; set; } = new List<Job>();
         public List<Job> RecentJobs { get; set; } = new List<Job>();
         public int TotalJobs { get; set; }

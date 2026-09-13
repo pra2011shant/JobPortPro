@@ -2,14 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class Job
+    /// <summary>
+    /// Represents a published or draft Job Opening.
+    /// </summary>
+    public class Job : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         public int EmployerId { get; set; }
         [ForeignKey("EmployerId")]
@@ -24,9 +25,13 @@ namespace JobPortPro.Models
         [ForeignKey("CategoryId")]
         public virtual Category? Category { get; set; }
 
+        public int? JobTypeId { get; set; }
+        [ForeignKey("JobTypeId")]
+        public virtual JobType? JobTypeEntity { get; set; }
+
         [Required(ErrorMessage = "Job Type is required")]
         [StringLength(50)]
-        public string JobType { get; set; } = "Full-Time"; // Full-Time, Part-Time, Remote, Contract, Internship
+        public string JobType { get; set; } = "Full-Time";
 
         [Required(ErrorMessage = "Location is required")]
         [StringLength(150)]
@@ -38,8 +43,12 @@ namespace JobPortPro.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal? SalaryMax { get; set; }
 
+        public int? ExperienceLevelId { get; set; }
+        [ForeignKey("ExperienceLevelId")]
+        public virtual ExperienceLevel? ExperienceLevelEntity { get; set; }
+
         [StringLength(50)]
-        public string? ExperienceLevel { get; set; } = "Mid Level"; // Entry Level, Mid Level, Senior Level, Director
+        public string? ExperienceLevel { get; set; } = "Mid Level";
 
         [Required(ErrorMessage = "Job Description is required")]
         public string Description { get; set; } = string.Empty;
@@ -49,9 +58,9 @@ namespace JobPortPro.Models
 
         public bool IsActive { get; set; } = true;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
         public DateTime? Deadline { get; set; }
+
+        public int ViewsCount { get; set; } = 0;
 
         public virtual ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
         public virtual ICollection<SavedJob> SavedByUsers { get; set; } = new List<SavedJob>();

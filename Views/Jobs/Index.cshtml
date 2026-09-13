@@ -35,40 +35,26 @@
                             <input type="text" name="q" value="@Model.Query" class="form-control form-control-sm" placeholder="Title, skills, company..." />
                         </div>
 
-                        <!-- Category -->
+                        <!-- Category (Dynamic from DB) -->
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-muted">Industry Category</label>
                             <select name="categoryId" class="form-select form-select-sm">
                                 <option value="">All Categories</option>
                                 @foreach (var cat in Model.Categories)
                                 {
-                                    if (Model.CategoryId == cat.Id)
-                                    {
-                                        <option value="@cat.Id" selected>@cat.Name</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="@cat.Id">@cat.Name</option>
-                                    }
+                                    <option value="@cat.Id" selected="@(Model.CategoryId == cat.Id)">@cat.Name</option>
                                 }
                             </select>
                         </div>
 
-                        <!-- Job Type -->
+                        <!-- Job Type (Dynamic from DB) -->
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-muted">Job Type</label>
                             <select name="jobType" class="form-select form-select-sm">
                                 <option value="">All Job Types</option>
-                                @foreach (var type in Model.JobTypes)
+                                @foreach (var type in Model.DynamicJobTypes)
                                 {
-                                    if (Model.JobType == type)
-                                    {
-                                        <option value="@type" selected>@type</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="@type">@type</option>
-                                    }
+                                    <option value="@type.Name" selected="@(Model.JobType == type.Name)">@type.Name</option>
                                 }
                             </select>
                         </div>
@@ -79,15 +65,15 @@
                             <input type="text" name="location" value="@Model.Location" class="form-control form-control-sm" placeholder="e.g. Bengaluru or Remote" />
                         </div>
 
-                        <!-- Experience Level -->
+                        <!-- Experience Level (Dynamic from DB) -->
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-muted">Experience Level</label>
                             <select name="experienceLevel" class="form-select form-select-sm">
                                 <option value="">All Levels</option>
-                                <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
-                                <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
-                                <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
-                                <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director</option>
+                                @foreach (var exp in Model.DynamicExperienceLevels)
+                                {
+                                    <option value="@exp.Title" selected="@(Model.ExperienceLevel == exp.Title)">@exp.Title</option>
+                                }
                             </select>
                         </div>
 
@@ -100,7 +86,7 @@
                         <!-- Hidden SortBy for persistence -->
                         <input type="hidden" name="sortBy" value="@Model.SortBy" />
 
-                        <button type="submit" class="btn btn-primary w-100 btn-sm rounded-3 py-2 fw-semibold">
+                        <button type="submit" class="btn btn-primary w-100 btn-sm rounded-3 py-2 fw-semibold shadow-sm">
                             Apply Filters
                         </button>
                     </form>

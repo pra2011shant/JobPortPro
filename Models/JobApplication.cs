@@ -1,14 +1,15 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class JobApplication
+    /// <summary>
+    /// Represents a candidate's formal application for a specific Job Opening.
+    /// </summary>
+    public class JobApplication : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         public int JobId { get; set; }
         [ForeignKey("JobId")]

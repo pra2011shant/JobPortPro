@@ -1,14 +1,15 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class SavedJob
+    /// <summary>
+    /// Represents a saved/bookmarked job by a Job Seeker.
+    /// </summary>
+    public class SavedJob : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         public int JobId { get; set; }
         [ForeignKey("JobId")]

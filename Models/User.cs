@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using JobPortPro.Models.Common;
 
 namespace JobPortPro.Models
 {
-    public class User
+    /// <summary>
+    /// Represents an authenticated user (JobSeeker, Employer, Admin) with role-based attributes.
+    /// </summary>
+    public class User : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required(ErrorMessage = "Full Name is required")]
         [StringLength(100)]
         public string FullName { get; set; } = string.Empty;
@@ -32,8 +33,6 @@ namespace JobPortPro.Models
         public string? ProfilePicture { get; set; }
 
         public string? Bio { get; set; }
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         public virtual CompanyProfile? CompanyProfile { get; set; }

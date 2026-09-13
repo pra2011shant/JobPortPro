@@ -12,32 +12,59 @@ namespace JobPortPro.Data
             // Ensure database is created
             context.Database.EnsureCreated();
 
+            // 1. Seed Master Job Types if not present
+            if (!context.JobTypes.Any())
+            {
+                var jobTypes = new List<JobType>
+                {
+                    new JobType { Name = "Full-Time", Code = "full-time", BadgeClass = "badge-soft-primary", DisplayOrder = 1, IsActive = true },
+                    new JobType { Name = "Remote", Code = "remote", BadgeClass = "badge-soft-success", DisplayOrder = 2, IsActive = true },
+                    new JobType { Name = "Part-Time", Code = "part-time", BadgeClass = "badge-soft-warning", DisplayOrder = 3, IsActive = true },
+                    new JobType { Name = "Contract", Code = "contract", BadgeClass = "badge-soft-info", DisplayOrder = 4, IsActive = true },
+                    new JobType { Name = "Internship", Code = "internship", BadgeClass = "badge-soft-secondary", DisplayOrder = 5, IsActive = true }
+                };
+                context.JobTypes.AddRange(jobTypes);
+                context.SaveChanges();
+            }
+
+            // 2. Seed Master Experience Levels if not present
+            if (!context.ExperienceLevels.Any())
+            {
+                var expLevels = new List<ExperienceLevel>
+                {
+                    new ExperienceLevel { Title = "Entry Level", Code = "entry-level", MinYears = 0, MaxYears = 2, DisplayOrder = 1, IsActive = true },
+                    new ExperienceLevel { Title = "Mid Level", Code = "mid-level", MinYears = 2, MaxYears = 5, DisplayOrder = 2, IsActive = true },
+                    new ExperienceLevel { Title = "Senior Level", Code = "senior-level", MinYears = 5, MaxYears = 10, DisplayOrder = 3, IsActive = true },
+                    new ExperienceLevel { Title = "Director / Executive", Code = "director", MinYears = 10, MaxYears = null, DisplayOrder = 4, IsActive = true }
+                };
+                context.ExperienceLevels.AddRange(expLevels);
+                context.SaveChanges();
+            }
+
             // Look for any users
             if (context.Users.Any())
             {
-                return; // DB has been seeded
+                return; // Core users & jobs already seeded
             }
 
-            // 1. Seed Categories
+            // 3. Seed Categories
             var categories = new List<Category>
             {
-                new Category { Name = "Software & IT", IconClass = "fa-solid fa-code", Description = "Web Development, Mobile Apps, Cloud, DevOps, AI & Data Science" },
-                new Category { Name = "Design & Creative", IconClass = "fa-solid fa-palette", Description = "UI/UX, Graphic Design, Product Design, 3D Animation" },
-                new Category { Name = "Marketing & Sales", IconClass = "fa-solid fa-bullhorn", Description = "Digital Marketing, SEO, Social Media, Content, B2B Sales" },
-                new Category { Name = "Finance & Accounting", IconClass = "fa-solid fa-chart-pie", Description = "Auditing, Financial Analysis, Taxation, Banking" },
-                new Category { Name = "Customer Support", IconClass = "fa-solid fa-headset", Description = "Technical Support, Customer Success, Helpdesk" },
-                new Category { Name = "Human Resources", IconClass = "fa-solid fa-users-gear", Description = "Talent Acquisition, HR Operations, Payroll, Employee Relations" },
-                new Category { Name = "Healthcare", IconClass = "fa-solid fa-heart-pulse", Description = "Nursing, Clinical Research, Pharmacy, Medical Tech" },
-                new Category { Name = "Engineering", IconClass = "fa-solid fa-gears", Description = "Mechanical, Civil, Electrical, Robotics" }
+                new Category { Name = "Software & IT", IconClass = "fa-solid fa-code", Description = "Web Development, Mobile Apps, Cloud, DevOps, AI & Data Science", DisplayOrder = 1, IsActive = true },
+                new Category { Name = "Design & Creative", IconClass = "fa-solid fa-palette", Description = "UI/UX, Graphic Design, Product Design, 3D Animation", DisplayOrder = 2, IsActive = true },
+                new Category { Name = "Marketing & Sales", IconClass = "fa-solid fa-bullhorn", Description = "Digital Marketing, SEO, Social Media, Content, B2B Sales", DisplayOrder = 3, IsActive = true },
+                new Category { Name = "Finance & Accounting", IconClass = "fa-solid fa-chart-pie", Description = "Auditing, Financial Analysis, Taxation, Banking", DisplayOrder = 4, IsActive = true },
+                new Category { Name = "Customer Support", IconClass = "fa-solid fa-headset", Description = "Technical Support, Customer Success, Helpdesk", DisplayOrder = 5, IsActive = true },
+                new Category { Name = "Human Resources", IconClass = "fa-solid fa-users-gear", Description = "Talent Acquisition, HR Operations, Payroll, Employee Relations", DisplayOrder = 6, IsActive = true },
+                new Category { Name = "Healthcare", IconClass = "fa-solid fa-heart-pulse", Description = "Nursing, Clinical Research, Pharmacy, Medical Tech", DisplayOrder = 7, IsActive = true },
+                new Category { Name = "Engineering", IconClass = "fa-solid fa-gears", Description = "Mechanical, Civil, Electrical, Robotics", DisplayOrder = 8, IsActive = true }
             };
             context.Categories.AddRange(categories);
             context.SaveChanges();
 
-            // 2. Seed Users
-            // Default Demo Password: "Password123!"
+            // 4. Seed Users
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword("Password123!");
 
-            // Employers
             var employer1 = new User
             {
                 FullName = "Vikram Malhotra",
@@ -60,7 +87,6 @@ namespace JobPortPro.Data
                 CreatedAt = DateTime.UtcNow.AddMonths(-2)
             };
 
-            // Job Seekers
             var seeker1 = new User
             {
                 FullName = "Rahul Verma",
@@ -86,7 +112,7 @@ namespace JobPortPro.Data
             context.Users.AddRange(employer1, employer2, seeker1, seeker2);
             context.SaveChanges();
 
-            // 3. Seed Company Profiles
+            // 5. Seed Company Profiles
             var company1 = new CompanyProfile
             {
                 UserId = employer1.Id,
@@ -111,7 +137,7 @@ namespace JobPortPro.Data
 
             context.CompanyProfiles.AddRange(company1, company2);
 
-            // 4. Seed Job Seeker Profiles
+            // 6. Seed Job Seeker Profiles
             var seekerProfile1 = new JobSeekerProfile
             {
                 UserId = seeker1.Id,
@@ -141,11 +167,18 @@ namespace JobPortPro.Data
             context.JobSeekerProfiles.AddRange(seekerProfile1, seekerProfile2);
             context.SaveChanges();
 
-            // 5. Seed Jobs
+            // 7. Seed Jobs
             var itCategory = categories.First(c => c.Name == "Software & IT");
             var designCategory = categories.First(c => c.Name == "Design & Creative");
             var marketingCategory = categories.First(c => c.Name == "Marketing & Sales");
             var financeCategory = categories.First(c => c.Name == "Finance & Accounting");
+
+            var fullTimeType = context.JobTypes.FirstOrDefault(jt => jt.Code == "full-time");
+            var remoteType = context.JobTypes.FirstOrDefault(jt => jt.Code == "remote");
+
+            var midLevel = context.ExperienceLevels.FirstOrDefault(el => el.Code == "mid-level");
+            var seniorLevel = context.ExperienceLevels.FirstOrDefault(el => el.Code == "senior-level");
+            var entryLevel = context.ExperienceLevels.FirstOrDefault(el => el.Code == "entry-level");
 
             var jobs = new List<Job>
             {
@@ -153,12 +186,14 @@ namespace JobPortPro.Data
                 {
                     EmployerId = employer1.Id,
                     CategoryId = itCategory.Id,
-                    Title = "Senior ASP.NET Core Full Stack Developer",
+                    JobTypeId = fullTimeType?.Id,
                     JobType = "Full-Time",
+                    ExperienceLevelId = seniorLevel?.Id,
+                    ExperienceLevel = "Senior Level",
+                    Title = "Senior ASP.NET Core Full Stack Developer",
                     Location = "Bengaluru, Karnataka (Hybrid)",
                     SalaryMin = 1200000,
                     SalaryMax = 1800000,
-                    ExperienceLevel = "Senior Level",
                     Description = "We are seeking a talented Senior .NET Developer with deep expertise in ASP.NET Core MVC, Entity Framework Core, SQL Server, and frontend technologies.",
                     Requirements = "• 4+ years of hands-on experience in C# and ASP.NET Core\n• Strong SQL Server database design, stored procedures, and query optimization\n• Experience with RESTful APIs, Git, and Azure deployment\n• Excellent problem-solving skills and team collaboration",
                     Responsibilities = "• Architect and build scalable web applications\n• Collaborate with cross-functional product and design teams\n• Write clean, well-tested, maintainable code\n• Mentor junior developers and participate in code reviews",
@@ -170,12 +205,14 @@ namespace JobPortPro.Data
                 {
                     EmployerId = employer1.Id,
                     CategoryId = itCategory.Id,
-                    Title = "Cloud DevOps Engineer (Azure / AWS)",
+                    JobTypeId = remoteType?.Id,
                     JobType = "Remote",
+                    ExperienceLevelId = midLevel?.Id,
+                    ExperienceLevel = "Mid Level",
+                    Title = "Cloud DevOps Engineer (Azure / AWS)",
                     Location = "Remote (India)",
                     SalaryMin = 1400000,
                     SalaryMax = 2200000,
-                    ExperienceLevel = "Mid Level",
                     Description = "Looking for a proactive DevOps Engineer to automate CI/CD pipelines, manage Kubernetes clusters, and scale cloud infrastructure.",
                     Requirements = "• 3+ years experience with Azure or AWS cloud platforms\n• Strong Docker, Kubernetes, Terraform, and GitHub Actions knowledge\n• Linux administration and scripting (Bash / PowerShell)",
                     Responsibilities = "• Design and maintain robust CI/CD pipelines\n• Ensure high system reliability and monitoring with Grafana/Prometheus\n• Implement security best practices across cloud environments",
@@ -187,12 +224,14 @@ namespace JobPortPro.Data
                 {
                     EmployerId = employer2.Id,
                     CategoryId = designCategory.Id,
-                    Title = "UI/UX & Product Designer",
+                    JobTypeId = fullTimeType?.Id,
                     JobType = "Full-Time",
+                    ExperienceLevelId = midLevel?.Id,
+                    ExperienceLevel = "Mid Level",
+                    Title = "UI/UX & Product Designer",
                     Location = "Mumbai, Maharashtra (On-site)",
                     SalaryMin = 800000,
                     SalaryMax = 1400000,
-                    ExperienceLevel = "Mid Level",
                     Description = "Innovate Digital is looking for an imaginative UI/UX Designer to build beautiful, intuitive mobile and web app interfaces for enterprise clients.",
                     Requirements = "• Proficient in Figma, Sketch, and Adobe Creative Cloud\n• Strong portfolio demonstrating user journey maps and interactive prototypes\n• Good understanding of design systems and responsive design",
                     Responsibilities = "• Create wireframes, storyboards, and high-fidelity mockups\n• Conduct user research and usability testing\n• Collaborate closely with frontend engineering teams",
@@ -204,12 +243,14 @@ namespace JobPortPro.Data
                 {
                     EmployerId = employer2.Id,
                     CategoryId = marketingCategory.Id,
-                    Title = "Growth Marketing & SEO Specialist",
+                    JobTypeId = remoteType?.Id,
                     JobType = "Remote",
+                    ExperienceLevelId = entryLevel?.Id,
+                    ExperienceLevel = "Entry Level",
+                    Title = "Growth Marketing & SEO Specialist",
                     Location = "Remote",
                     SalaryMin = 600000,
                     SalaryMax = 1000000,
-                    ExperienceLevel = "Entry Level",
                     Description = "Drive organic traffic and lead acquisition across multiple digital channels and international campaigns.",
                     Requirements = "• Hands-on experience with Google Analytics, SEMrush, Ahrefs\n• Solid understanding of technical SEO and content marketing\n• Strong analytical and copywriting skills",
                     Responsibilities = "• Execute data-driven SEO and growth marketing strategies\n• Optimize landing pages and conversion funnels\n• Track and report weekly KPIs and campaign ROI",
@@ -221,12 +262,14 @@ namespace JobPortPro.Data
                 {
                     EmployerId = employer1.Id,
                     CategoryId = financeCategory.Id,
-                    Title = "Senior Financial Analyst",
+                    JobTypeId = fullTimeType?.Id,
                     JobType = "Full-Time",
+                    ExperienceLevelId = seniorLevel?.Id,
+                    ExperienceLevel = "Senior Level",
+                    Title = "Senior Financial Analyst",
                     Location = "Bengaluru, Karnataka",
                     SalaryMin = 1000000,
                     SalaryMax = 1600000,
-                    ExperienceLevel = "Senior Level",
                     Description = "Lead financial forecasting, variance analysis, and strategic budgeting for high-growth tech projects.",
                     Requirements = "• CA / MBA in Finance with 3+ years in corporate finance\n• Advanced MS Excel & financial modeling skills\n• Strong business acumen and presentation skills",
                     Responsibilities = "• Prepare quarterly financial models and board reports\n• Partner with department heads to manage operational budgets\n• Identify revenue growth and cost-optimization opportunities",
@@ -239,10 +282,10 @@ namespace JobPortPro.Data
             context.Jobs.AddRange(jobs);
             context.SaveChanges();
 
-            // 6. Seed Sample Applications
+            // 8. Seed Sample Applications
             var app1 = new JobApplication
             {
-                JobId = jobs[0].Id, // .NET Developer job
+                JobId = jobs[0].Id,
                 JobSeekerId = seeker1.Id,
                 CoverLetter = "Hello Hiring Team,\n\nI am thrilled to apply for the Senior ASP.NET Core Developer role at TechSolutions Global. With over 4 years of robust experience in building scalable .NET systems and SQL Server databases, I am confident in adding immediate value to your team.\n\nBest regards,\nRahul Verma",
                 ResumePath = "/resumes/sample_resume_rahul.pdf",
@@ -254,7 +297,7 @@ namespace JobPortPro.Data
 
             var app2 = new JobApplication
             {
-                JobId = jobs[2].Id, // UI/UX Designer job
+                JobId = jobs[2].Id,
                 JobSeekerId = seeker2.Id,
                 CoverLetter = "Dear Innovate Digital Team,\n\nI would love the opportunity to contribute my product design and Figma design systems expertise to your dynamic projects. My portfolio highlights several successful SaaS dashboard redesigns.\n\nWarm regards,\nPriya Nair",
                 ResumePath = "/resumes/sample_resume_priya.pdf",
@@ -266,10 +309,10 @@ namespace JobPortPro.Data
 
             context.JobApplications.AddRange(app1, app2);
 
-            // 7. Seed Saved Jobs
+            // 9. Seed Saved Jobs
             var savedJob = new SavedJob
             {
-                JobId = jobs[1].Id, // DevOps job
+                JobId = jobs[1].Id,
                 JobSeekerId = seeker1.Id,
                 SavedAt = DateTime.UtcNow.AddDays(-2)
             };

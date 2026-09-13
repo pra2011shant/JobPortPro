@@ -13,11 +13,16 @@ namespace JobPortPro.Controllers
     {
         private readonly IJobService _jobService;
         private readonly IApplicationService _applicationService;
+        private readonly ILookupService _lookupService;
 
-        public EmployerController(IJobService jobService, IApplicationService applicationService)
+        public EmployerController(
+            IJobService jobService,
+            IApplicationService applicationService,
+            ILookupService lookupService)
         {
             _jobService = jobService;
             _applicationService = applicationService;
+            _lookupService = lookupService;
         }
 
         // GET: /Employer/Dashboard
@@ -54,10 +59,15 @@ namespace JobPortPro.Controllers
         [HttpGet]
         public async Task<IActionResult> PostJob()
         {
-            var categories = await _jobService.GetAllCategoriesAsync();
+            var categories = await _lookupService.GetCategoriesAsync();
+            var jobTypes = await _lookupService.GetJobTypesAsync();
+            var expLevels = await _lookupService.GetExperienceLevelsAsync();
+
             var model = new PostJobViewModel
             {
                 AvailableCategories = categories,
+                AvailableJobTypes = jobTypes,
+                AvailableExperienceLevels = expLevels,
                 Deadline = DateTime.UtcNow.AddDays(30)
             };
             return View(model);
@@ -77,7 +87,9 @@ namespace JobPortPro.Controllers
                 return RedirectToAction(nameof(ManageJobs));
             }
 
-            model.AvailableCategories = await _jobService.GetAllCategoriesAsync();
+            model.AvailableCategories = await _lookupService.GetCategoriesAsync();
+            model.AvailableJobTypes = await _lookupService.GetJobTypesAsync();
+            model.AvailableExperienceLevels = await _lookupService.GetExperienceLevelsAsync();
             return View(model);
         }
 
@@ -93,23 +105,30 @@ namespace JobPortPro.Controllers
                 return NotFound();
             }
 
-            var categories = await _jobService.GetAllCategoriesAsync();
+            var categories = await _lookupService.GetCategoriesAsync();
+            var jobTypes = await _lookupService.GetJobTypesAsync();
+            var expLevels = await _lookupService.GetExperienceLevelsAsync();
+
             var model = new PostJobViewModel
             {
                 Id = job.Id,
                 Title = job.Title,
                 CategoryId = job.CategoryId,
+                JobTypeId = job.JobTypeId,
                 JobType = job.JobType,
                 Location = job.Location,
                 SalaryMin = job.SalaryMin,
                 SalaryMax = job.SalaryMax,
+                ExperienceLevelId = job.ExperienceLevelId,
                 ExperienceLevel = job.ExperienceLevel,
                 Description = job.Description,
                 Requirements = job.Requirements,
                 Responsibilities = job.Responsibilities,
                 IsActive = job.IsActive,
                 Deadline = job.Deadline,
-                AvailableCategories = categories
+                AvailableCategories = categories,
+                AvailableJobTypes = jobTypes,
+                AvailableExperienceLevels = expLevels
             };
 
             return View(model);
@@ -133,7 +152,9 @@ namespace JobPortPro.Controllers
                 return RedirectToAction(nameof(ManageJobs));
             }
 
-            model.AvailableCategories = await _jobService.GetAllCategoriesAsync();
+            model.AvailableCategories = await _lookupService.GetCategoriesAsync();
+            model.AvailableJobTypes = await _lookupService.GetJobTypesAsync();
+            model.AvailableExperienceLevels = await _lookupService.GetExperienceLevelsAsync();
             return View(model);
         }
 

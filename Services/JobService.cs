@@ -21,7 +21,7 @@ namespace JobPortPro.Services
         }
 
         /// <summary>
-        /// Retrieves paginated, filtered, and sorted job listings.
+        /// Retrieves paginated, filtered, and sorted job listings with 100% database-driven lookup metadata.
         /// </summary>
         public async Task<JobFilterViewModel> GetFilteredJobsAsync(
             string? query,
@@ -37,6 +37,8 @@ namespace JobPortPro.Services
             var q = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Category)
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.IsActive)
@@ -62,7 +64,7 @@ namespace JobPortPro.Services
             // Job type filter
             if (!string.IsNullOrWhiteSpace(jobType))
             {
-                q = q.Where(j => j.JobType == jobType);
+                q = q.Where(j => j.JobType == jobType || (j.JobTypeEntity != null && j.JobTypeEntity.Name == jobType));
             }
 
             // Location filter
@@ -74,7 +76,7 @@ namespace JobPortPro.Services
             // Experience level filter
             if (!string.IsNullOrWhiteSpace(experienceLevel))
             {
-                q = q.Where(j => j.ExperienceLevel == experienceLevel);
+                q = q.Where(j => j.ExperienceLevel == experienceLevel || (j.ExperienceLevelEntity != null && j.ExperienceLevelEntity.Title == experienceLevel));
             }
 
             // Salary filter
@@ -97,9 +99,26 @@ namespace JobPortPro.Services
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Load master lookup lists directly from database
             var categories = await _context.Categories
                 .AsNoTracking()
-                .OrderBy(c => c.Name)
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Name)
+                .ToListAsync();
+
+            var jobTypes = await _context.JobTypes
+                .AsNoTracking()
+                .Where(jt => jt.IsActive)
+                .OrderBy(jt => jt.DisplayOrder)
+                .ThenBy(jt => jt.Name)
+                .ToListAsync();
+
+            var expLevels = await _context.ExperienceLevels
+                .AsNoTracking()
+                .Where(el => el.IsActive)
+                .OrderBy(el => el.DisplayOrder)
+                .ThenBy(el => el.MinYears)
                 .ToListAsync();
 
             var locations = await _context.Jobs
@@ -124,6 +143,8 @@ namespace JobPortPro.Services
                 TotalItems = totalItems,
                 Jobs = jobs,
                 Categories = categories,
+                DynamicJobTypes = jobTypes,
+                DynamicExperienceLevels = expLevels,
                 Locations = locations
             };
         }
@@ -133,6 +154,8 @@ namespace JobPortPro.Services
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Category)
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Include(j => j.Applications)
@@ -144,6 +167,8 @@ namespace JobPortPro.Services
             var q = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Category)
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Applications)
                 .Where(j => j.EmployerId == employerId);
 
@@ -164,6 +189,8 @@ namespace JobPortPro.Services
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Category)
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.IsActive)
@@ -177,6 +204,8 @@ namespace JobPortPro.Services
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Category)
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.IsActive)
@@ -189,6 +218,8 @@ namespace JobPortPro.Services
         {
             return await _context.Jobs
                 .AsNoTracking()
+                .Include(j => j.JobTypeEntity)
+                .Include(j => j.ExperienceLevelEntity)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.CategoryId == categoryId && j.Id != excludeJobId && j.IsActive)
@@ -201,8 +232,10 @@ namespace JobPortPro.Services
         {
             return await _context.Categories
                 .AsNoTracking()
+                .Where(c => c.IsActive)
                 .Include(c => c.Jobs.Where(j => j.IsActive))
-                .OrderBy(c => c.Name)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Name)
                 .ToListAsync();
         }
 
@@ -213,10 +246,12 @@ namespace JobPortPro.Services
                 EmployerId = employerId,
                 Title = model.Title.Trim(),
                 CategoryId = model.CategoryId,
+                JobTypeId = model.JobTypeId,
                 JobType = model.JobType,
                 Location = model.Location.Trim(),
                 SalaryMin = model.SalaryMin,
                 SalaryMax = model.SalaryMax,
+                ExperienceLevelId = model.ExperienceLevelId,
                 ExperienceLevel = model.ExperienceLevel,
                 Description = model.Description.Trim(),
                 Requirements = model.Requirements?.Trim(),
@@ -240,16 +275,19 @@ namespace JobPortPro.Services
 
             job.Title = model.Title.Trim();
             job.CategoryId = model.CategoryId;
+            job.JobTypeId = model.JobTypeId;
             job.JobType = model.JobType;
             job.Location = model.Location.Trim();
             job.SalaryMin = model.SalaryMin;
             job.SalaryMax = model.SalaryMax;
+            job.ExperienceLevelId = model.ExperienceLevelId;
             job.ExperienceLevel = model.ExperienceLevel;
             job.Description = model.Description.Trim();
             job.Requirements = model.Requirements?.Trim();
             job.Responsibilities = model.Responsibilities?.Trim();
             job.IsActive = model.IsActive;
             job.Deadline = model.Deadline;
+            job.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return true;
@@ -261,6 +299,7 @@ namespace JobPortPro.Services
             if (job == null) return false;
 
             job.IsActive = !job.IsActive;
+            job.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -282,7 +321,7 @@ namespace JobPortPro.Services
             {
                 _context.SavedJobs.Remove(saved);
                 await _context.SaveChangesAsync();
-                return false; // Removed
+                return false;
             }
             else
             {
@@ -293,7 +332,7 @@ namespace JobPortPro.Services
                     SavedAt = DateTime.UtcNow
                 });
                 await _context.SaveChangesAsync();
-                return true; // Added
+                return true;
             }
         }
 

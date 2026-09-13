@@ -5,18 +5,20 @@ using JobPortPro.Models.Common;
 namespace JobPortPro.Models
 {
     /// <summary>
-    /// Master industry sector category stored in DB.
+    /// Master entity for Job Types (Full-Time, Remote, Part-Time, Contract, Internship) stored in DB.
     /// </summary>
-    public class Category : BaseEntity
+    public class JobType : BaseEntity
     {
-        [Required(ErrorMessage = "Category name is required")]
-        [StringLength(100)]
+        [Required]
+        [StringLength(50)]
         public string Name { get; set; } = string.Empty;
 
+        [Required]
         [StringLength(50)]
-        public string? IconClass { get; set; } = "fa-solid fa-briefcase";
+        public string Code { get; set; } = string.Empty; // "full-time", "remote", "part-time", etc.
 
-        public string? Description { get; set; }
+        [StringLength(50)]
+        public string BadgeClass { get; set; } = "badge-soft-primary";
 
         public int DisplayOrder { get; set; } = 0;
 

@@ -5,18 +5,21 @@ using JobPortPro.Models.Common;
 namespace JobPortPro.Models
 {
     /// <summary>
-    /// Master industry sector category stored in DB.
+    /// Master entity for Experience Levels (Entry Level, Mid Level, Senior Level, Director) stored in DB.
     /// </summary>
-    public class Category : BaseEntity
+    public class ExperienceLevel : BaseEntity
     {
-        [Required(ErrorMessage = "Category name is required")]
+        [Required]
         [StringLength(100)]
-        public string Name { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
 
+        [Required]
         [StringLength(50)]
-        public string? IconClass { get; set; } = "fa-solid fa-briefcase";
+        public string Code { get; set; } = string.Empty;
 
-        public string? Description { get; set; }
+        public int MinYears { get; set; } = 0;
+
+        public int? MaxYears { get; set; }
 
         public int DisplayOrder { get; set; } = 0;
 
