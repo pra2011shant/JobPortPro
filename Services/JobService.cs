@@ -8,6 +8,9 @@ using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
+    /// <summary>
+    /// Handles business logic and data access for job listings, categories, and bookmarks.
+    /// </summary>
     public class JobService : IJobService
     {
         private readonly ApplicationDbContext _context;
@@ -17,6 +20,9 @@ namespace JobPortPro.Services
             _context = context;
         }
 
+        /// <summary>
+        /// Retrieves paginated, filtered, and sorted job listings.
+        /// </summary>
         public async Task<JobFilterViewModel> GetFilteredJobsAsync(
             string? query,
             int? categoryId,
@@ -29,12 +35,14 @@ namespace JobPortPro.Services
             int pageSize)
         {
             var q = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Category)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.IsActive)
                 .AsQueryable();
 
+            // Search filter
             if (!string.IsNullOrWhiteSpace(query))
             {
                 string searchLower = query.Trim().ToLower();
@@ -45,31 +53,37 @@ namespace JobPortPro.Services
                     (j.Employer != null && j.Employer.CompanyProfile != null && j.Employer.CompanyProfile.CompanyName.ToLower().Contains(searchLower)));
             }
 
+            // Category filter
             if (categoryId.HasValue && categoryId.Value > 0)
             {
                 q = q.Where(j => j.CategoryId == categoryId.Value);
             }
 
+            // Job type filter
             if (!string.IsNullOrWhiteSpace(jobType))
             {
                 q = q.Where(j => j.JobType == jobType);
             }
 
+            // Location filter
             if (!string.IsNullOrWhiteSpace(location))
             {
                 q = q.Where(j => j.Location.ToLower().Contains(location.Trim().ToLower()));
             }
 
+            // Experience level filter
             if (!string.IsNullOrWhiteSpace(experienceLevel))
             {
                 q = q.Where(j => j.ExperienceLevel == experienceLevel);
             }
 
+            // Salary filter
             if (minSalary.HasValue && minSalary.Value > 0)
             {
                 q = q.Where(j => j.SalaryMax >= minSalary.Value || j.SalaryMin >= minSalary.Value);
             }
 
+            // Sorting
             q = sortBy switch
             {
                 "salary_high" => q.OrderByDescending(j => j.SalaryMax ?? j.SalaryMin ?? 0),
@@ -83,8 +97,13 @@ namespace JobPortPro.Services
                 .Take(pageSize)
                 .ToListAsync();
 
-            var categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            var categories = await _context.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
             var locations = await _context.Jobs
+                .AsNoTracking()
                 .Where(j => j.IsActive && !string.IsNullOrEmpty(j.Location))
                 .Select(j => j.Location)
                 .Distinct()
@@ -112,6 +131,7 @@ namespace JobPortPro.Services
         public async Task<Job?> GetJobByIdAsync(int id)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Category)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
@@ -122,6 +142,7 @@ namespace JobPortPro.Services
         public async Task<List<Job>> GetJobsByEmployerAsync(int employerId, string? status = null)
         {
             var q = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Category)
                 .Include(j => j.Applications)
                 .Where(j => j.EmployerId == employerId);
@@ -141,6 +162,7 @@ namespace JobPortPro.Services
         public async Task<List<Job>> GetFeaturedJobsAsync(int count = 6)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Category)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
@@ -153,6 +175,7 @@ namespace JobPortPro.Services
         public async Task<List<Job>> GetRecentJobsAsync(int count = 4)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Category)
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
@@ -165,6 +188,7 @@ namespace JobPortPro.Services
         public async Task<List<Job>> GetRelatedJobsAsync(int categoryId, int excludeJobId, int count = 3)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Employer)
                     .ThenInclude(e => e!.CompanyProfile)
                 .Where(j => j.CategoryId == categoryId && j.Id != excludeJobId && j.IsActive)
@@ -176,6 +200,7 @@ namespace JobPortPro.Services
         public async Task<List<Category>> GetAllCategoriesAsync()
         {
             return await _context.Categories
+                .AsNoTracking()
                 .Include(c => c.Jobs.Where(j => j.IsActive))
                 .OrderBy(c => c.Name)
                 .ToListAsync();
@@ -275,6 +300,7 @@ namespace JobPortPro.Services
         public async Task<List<SavedJob>> GetSavedJobsAsync(int seekerId)
         {
             return await _context.SavedJobs
+                .AsNoTracking()
                 .Include(s => s.Job)
                     .ThenInclude(j => j!.Employer)
                         .ThenInclude(e => e!.CompanyProfile)
@@ -287,7 +313,9 @@ namespace JobPortPro.Services
 
         public async Task<bool> IsJobSavedAsync(int seekerId, int jobId)
         {
-            return await _context.SavedJobs.AnyAsync(s => s.JobId == jobId && s.JobSeekerId == seekerId);
+            return await _context.SavedJobs
+                .AsNoTracking()
+                .AnyAsync(s => s.JobId == jobId && s.JobSeekerId == seekerId);
         }
     }
 }

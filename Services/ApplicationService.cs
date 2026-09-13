@@ -8,6 +8,9 @@ using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
+    /// <summary>
+    /// Manages candidate job applications, pipeline status transitions, and recruiter feedback.
+    /// </summary>
     public class ApplicationService : IApplicationService
     {
         private readonly ApplicationDbContext _context;
@@ -37,12 +40,15 @@ namespace JobPortPro.Services
 
         public async Task<bool> HasUserAppliedAsync(int seekerId, int jobId)
         {
-            return await _context.JobApplications.AnyAsync(a => a.JobId == jobId && a.JobSeekerId == seekerId);
+            return await _context.JobApplications
+                .AsNoTracking()
+                .AnyAsync(a => a.JobId == jobId && a.JobSeekerId == seekerId);
         }
 
         public async Task<List<JobApplication>> GetApplicationsBySeekerAsync(int seekerId, string? status = null)
         {
             var q = _context.JobApplications
+                .AsNoTracking()
                 .Include(a => a.Job)
                     .ThenInclude(j => j!.Employer)
                         .ThenInclude(e => e!.CompanyProfile)
@@ -61,6 +67,7 @@ namespace JobPortPro.Services
         public async Task<List<JobApplication>> GetApplicationsByEmployerAsync(int employerId, int? jobId = null, string? status = null)
         {
             var q = _context.JobApplications
+                .AsNoTracking()
                 .Include(a => a.Job)
                 .Include(a => a.JobSeeker)
                     .ThenInclude(u => u!.JobSeekerProfile)
