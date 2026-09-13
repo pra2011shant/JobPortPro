@@ -26,7 +26,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register Repository Pattern & Unit of Work (OOPs Abstraction)
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// Register Application Services
+// Register Stored Procedure Executor & Application Services
+builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
 builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();

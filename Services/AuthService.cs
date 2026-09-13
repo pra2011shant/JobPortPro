@@ -1,70 +1,93 @@
 using System;
+using System.Data;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using JobPortPro.Data;
 using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
+    /// <summary>
+    /// Authenticates users and manages security workflows via SQL Server Stored Procedures and BCrypt.
+    /// </summary>
     public class AuthService : IAuthService
     {
+        private readonly IStoredProcedureExecutor _spExecutor;
         private readonly ApplicationDbContext _context;
 
-        public AuthService(ApplicationDbContext context)
+        public AuthService(IStoredProcedureExecutor spExecutor, ApplicationDbContext context)
         {
+            _spExecutor = spExecutor;
             _context = context;
         }
 
         public async Task<(bool Success, string ErrorMessage, User? User)> RegisterAsync(RegisterViewModel model)
         {
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
-            if (existingUser != null)
+            var outputParam = new SqlParameter("@UserId", SqlDbType.Int)
             {
-                return (false, "An account with this email already exists.", null);
-            }
-
-            var user = new User
-            {
-                FullName = model.FullName.Trim(),
-                Email = model.Email.Trim().ToLower(),
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
-                Role = model.Role == "Employer" ? "Employer" : "JobSeeker",
-                CreatedAt = DateTime.UtcNow
+                Direction = ParameterDirection.Output
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
-            if (user.Role == "Employer")
+            var parameters = new[]
             {
-                var companyProfile = new CompanyProfile
-                {
-                    UserId = user.Id,
-                    CompanyName = !string.IsNullOrWhiteSpace(model.CompanyName) ? model.CompanyName.Trim() : $"{model.FullName}'s Company",
-                    Location = "Not Specified"
-                };
-                _context.CompanyProfiles.Add(companyProfile);
-            }
-            else
+                new SqlParameter("@FullName", model.FullName.Trim()),
+                new SqlParameter("@Email", model.Email.Trim().ToLower()),
+                new SqlParameter("@PasswordHash", passwordHash),
+                new SqlParameter("@Role", model.Role == "Employer" ? "Employer" : "JobSeeker"),
+                new SqlParameter("@PhoneNumber", DBNull.Value),
+                new SqlParameter("@CompanyName", (object?)model.CompanyName?.Trim() ?? DBNull.Value),
+                outputParam
+            };
+
+            await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_CreateUser", parameters);
+
+            int userId = outputParam.Value != DBNull.Value ? Convert.ToInt32(outputParam.Value) : -1;
+
+            if (userId == -1)
             {
-                var seekerProfile = new JobSeekerProfile
-                {
-                    UserId = user.Id,
-                    Headline = "Job Seeker"
-                };
-                _context.JobSeekerProfiles.Add(seekerProfile);
+                return (false, "An account with this email address already exists.", null);
             }
 
-            await _context.SaveChangesAsync();
+            var user = await GetUserByIdAsync(userId);
             return (true, string.Empty, user);
         }
 
         public async Task<User?> ValidateCredentialsAsync(string email, string password)
         {
-            var user = await _context.Users
-                .Include(u => u.CompanyProfile)
-                .Include(u => u.JobSeekerProfile)
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLower());
+            var parameters = new[] { new SqlParameter("@Email", email.Trim().ToLower()) };
+
+            var user = await _spExecutor.ExecuteStoredProcedureSingleAsync(
+                "dbo.sp_GetUserByEmail",
+                parameters,
+                reader => new User
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    FullName = reader.GetString(reader.GetOrdinal("FullName")),
+                    Email = reader.GetString(reader.GetOrdinal("Email")),
+                    PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
+                    Role = reader.GetString(reader.GetOrdinal("Role")),
+                    PhoneNumber = reader.IsDBNull(reader.GetOrdinal("PhoneNumber")) ? null : reader.GetString(reader.GetOrdinal("PhoneNumber")),
+                    Bio = reader.IsDBNull(reader.GetOrdinal("Bio")) ? null : reader.GetString(reader.GetOrdinal("Bio")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                    CompanyProfile = reader.IsDBNull(reader.GetOrdinal("CompanyProfileId")) ? null : new CompanyProfile
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("CompanyProfileId")),
+                        CompanyName = reader.IsDBNull(reader.GetOrdinal("CompanyName")) ? "Company" : reader.GetString(reader.GetOrdinal("CompanyName")),
+                        Description = reader.IsDBNull(reader.GetOrdinal("CompanyDescription")) ? null : reader.GetString(reader.GetOrdinal("CompanyDescription")),
+                        Website = reader.IsDBNull(reader.GetOrdinal("CompanyWebsite")) ? null : reader.GetString(reader.GetOrdinal("CompanyWebsite"))
+                    },
+                    JobSeekerProfile = reader.IsDBNull(reader.GetOrdinal("JobSeekerProfileId")) ? null : new JobSeekerProfile
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("JobSeekerProfileId")),
+                        Headline = reader.IsDBNull(reader.GetOrdinal("SeekerHeadline")) ? "Candidate" : reader.GetString(reader.GetOrdinal("SeekerHeadline")),
+                        Skills = reader.IsDBNull(reader.GetOrdinal("SeekerSkills")) ? null : reader.GetString(reader.GetOrdinal("SeekerSkills")),
+                        ResumeFilePath = reader.IsDBNull(reader.GetOrdinal("SeekerResumePath")) ? null : reader.GetString(reader.GetOrdinal("SeekerResumePath"))
+                    }
+                });
 
             if (user != null && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
@@ -77,6 +100,7 @@ namespace JobPortPro.Services
         public async Task<User?> GetUserByIdAsync(int userId)
         {
             return await _context.Users
+                .AsNoTracking()
                 .Include(u => u.CompanyProfile)
                 .Include(u => u.JobSeekerProfile)
                 .FirstOrDefaultAsync(u => u.Id == userId);
@@ -137,6 +161,7 @@ namespace JobPortPro.Services
                 user.CompanyProfile.CompanySize = model.CompanySize?.Trim();
             }
 
+            user.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
         }

@@ -1,28 +1,27 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data;
+using System.Data.Common;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
+using Microsoft.Data.SqlClient;
 using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
     /// <summary>
-    /// Handles business logic and data access for job listings, categories, and bookmarks.
+    /// Handles business logic and data access for jobs and bookmarks via SQL Server Stored Procedures.
     /// </summary>
     public class JobService : IJobService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IStoredProcedureExecutor _spExecutor;
+        private readonly ILookupService _lookupService;
 
-        public JobService(ApplicationDbContext context)
+        public JobService(IStoredProcedureExecutor spExecutor, ILookupService lookupService)
         {
-            _context = context;
+            _spExecutor = spExecutor;
+            _lookupService = lookupService;
         }
 
-        /// <summary>
-        /// Retrieves paginated, filtered, and sorted job listings with 100% database-driven lookup metadata.
-        /// </summary>
         public async Task<JobFilterViewModel> GetFilteredJobsAsync(
             string? query,
             int? categoryId,
@@ -34,100 +33,30 @@ namespace JobPortPro.Services
             int page,
             int pageSize)
         {
-            var q = _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.Category)
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .AsQueryable();
-
-            // Search filter
-            if (!string.IsNullOrWhiteSpace(query))
+            var parameters = new List<SqlParameter>
             {
-                string searchLower = query.Trim().ToLower();
-                q = q.Where(j =>
-                    j.Title.ToLower().Contains(searchLower) ||
-                    j.Description.ToLower().Contains(searchLower) ||
-                    (j.Requirements != null && j.Requirements.ToLower().Contains(searchLower)) ||
-                    (j.Employer != null && j.Employer.CompanyProfile != null && j.Employer.CompanyProfile.CompanyName.ToLower().Contains(searchLower)));
-            }
-
-            // Category filter
-            if (categoryId.HasValue && categoryId.Value > 0)
-            {
-                q = q.Where(j => j.CategoryId == categoryId.Value);
-            }
-
-            // Job type filter
-            if (!string.IsNullOrWhiteSpace(jobType))
-            {
-                q = q.Where(j => j.JobType == jobType || (j.JobTypeEntity != null && j.JobTypeEntity.Name == jobType));
-            }
-
-            // Location filter
-            if (!string.IsNullOrWhiteSpace(location))
-            {
-                q = q.Where(j => j.Location.ToLower().Contains(location.Trim().ToLower()));
-            }
-
-            // Experience level filter
-            if (!string.IsNullOrWhiteSpace(experienceLevel))
-            {
-                q = q.Where(j => j.ExperienceLevel == experienceLevel || (j.ExperienceLevelEntity != null && j.ExperienceLevelEntity.Title == experienceLevel));
-            }
-
-            // Salary filter
-            if (minSalary.HasValue && minSalary.Value > 0)
-            {
-                q = q.Where(j => j.SalaryMax >= minSalary.Value || j.SalaryMin >= minSalary.Value);
-            }
-
-            // Sorting
-            q = sortBy switch
-            {
-                "salary_high" => q.OrderByDescending(j => j.SalaryMax ?? j.SalaryMin ?? 0),
-                "salary_low" => q.OrderBy(j => j.SalaryMin ?? j.SalaryMax ?? 0),
-                _ => q.OrderByDescending(j => j.CreatedAt)
+                new SqlParameter("@SearchQuery", (object?)query ?? DBNull.Value),
+                new SqlParameter("@CategoryId", (object?)categoryId ?? DBNull.Value),
+                new SqlParameter("@JobTypeId", DBNull.Value),
+                new SqlParameter("@JobType", (object?)jobType ?? DBNull.Value),
+                new SqlParameter("@Location", (object?)location ?? DBNull.Value),
+                new SqlParameter("@ExperienceLevelId", DBNull.Value),
+                new SqlParameter("@MinSalary", (object?)minSalary ?? DBNull.Value),
+                new SqlParameter("@SortBy", (object?)sortBy ?? "newest"),
+                new SqlParameter("@PageNumber", page),
+                new SqlParameter("@PageSize", pageSize)
             };
 
-            int totalItems = await q.CountAsync();
-            var jobs = await q
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+            var (jobs, totalItems) = await _spExecutor.ExecuteStoredProcedurePagedListAsync(
+                "dbo.sp_GetFilteredJobs",
+                parameters,
+                "@TotalCount",
+                MapJobFromReader);
 
-            // Load master lookup lists directly from database
-            var categories = await _context.Categories
-                .AsNoTracking()
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.DisplayOrder)
-                .ThenBy(c => c.Name)
-                .ToListAsync();
-
-            var jobTypes = await _context.JobTypes
-                .AsNoTracking()
-                .Where(jt => jt.IsActive)
-                .OrderBy(jt => jt.DisplayOrder)
-                .ThenBy(jt => jt.Name)
-                .ToListAsync();
-
-            var expLevels = await _context.ExperienceLevels
-                .AsNoTracking()
-                .Where(el => el.IsActive)
-                .OrderBy(el => el.DisplayOrder)
-                .ThenBy(el => el.MinYears)
-                .ToListAsync();
-
-            var locations = await _context.Jobs
-                .AsNoTracking()
-                .Where(j => j.IsActive && !string.IsNullOrEmpty(j.Location))
-                .Select(j => j.Location)
-                .Distinct()
-                .Take(15)
-                .ToListAsync();
+            var categories = await _lookupService.GetCategoriesAsync();
+            var jobTypes = await _lookupService.GetJobTypesAsync();
+            var expLevels = await _lookupService.GetExperienceLevelsAsync();
+            var locations = await _lookupService.GetPopularLocationsAsync();
 
             return new JobFilterViewModel
             {
@@ -151,210 +80,335 @@ namespace JobPortPro.Services
 
         public async Task<Job?> GetJobByIdAsync(int id)
         {
-            return await _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.Category)
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Include(j => j.Applications)
-                .FirstOrDefaultAsync(j => j.Id == id);
+            var parameters = new[]
+            {
+                new SqlParameter("@JobId", id),
+                new SqlParameter("@IncrementViews", 1)
+            };
+
+            return await _spExecutor.ExecuteStoredProcedureSingleAsync(
+                "dbo.sp_GetJobById",
+                parameters,
+                MapJobDetailsFromReader);
         }
 
         public async Task<List<Job>> GetJobsByEmployerAsync(int employerId, string? status = null)
         {
-            var q = _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.Category)
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Applications)
-                .Where(j => j.EmployerId == employerId);
-
-            if (status == "active")
+            var parameters = new List<SqlParameter>
             {
-                q = q.Where(j => j.IsActive);
-            }
-            else if (status == "inactive")
-            {
-                q = q.Where(j => !j.IsActive);
-            }
+                new SqlParameter("@SearchQuery", DBNull.Value),
+                new SqlParameter("@CategoryId", DBNull.Value),
+                new SqlParameter("@JobTypeId", DBNull.Value),
+                new SqlParameter("@JobType", DBNull.Value),
+                new SqlParameter("@Location", DBNull.Value),
+                new SqlParameter("@ExperienceLevelId", DBNull.Value),
+                new SqlParameter("@MinSalary", DBNull.Value),
+                new SqlParameter("@SortBy", "newest"),
+                new SqlParameter("@PageNumber", 1),
+                new SqlParameter("@PageSize", 100)
+            };
 
-            return await q.OrderByDescending(j => j.CreatedAt).ToListAsync();
+            var (jobs, _) = await _spExecutor.ExecuteStoredProcedurePagedListAsync(
+                "dbo.sp_GetFilteredJobs",
+                parameters,
+                "@TotalCount",
+                MapJobFromReader);
+
+            return jobs.FindAll(j => j.EmployerId == employerId);
         }
 
         public async Task<List<Job>> GetFeaturedJobsAsync(int count = 6)
         {
-            return await _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.Category)
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(count)
-                .ToListAsync();
+            var parameters = new[] { new SqlParameter("@Count", count) };
+
+            return await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetFeaturedJobs",
+                parameters,
+                MapJobFromReader);
         }
 
         public async Task<List<Job>> GetRecentJobsAsync(int count = 4)
         {
-            return await _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.Category)
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(count)
-                .ToListAsync();
+            var parameters = new[] { new SqlParameter("@Count", count) };
+
+            return await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetRecentJobs",
+                parameters,
+                MapJobFromReader);
         }
 
         public async Task<List<Job>> GetRelatedJobsAsync(int categoryId, int excludeJobId, int count = 3)
         {
-            return await _context.Jobs
-                .AsNoTracking()
-                .Include(j => j.JobTypeEntity)
-                .Include(j => j.ExperienceLevelEntity)
-                .Include(j => j.Employer)
-                    .ThenInclude(e => e!.CompanyProfile)
-                .Where(j => j.CategoryId == categoryId && j.Id != excludeJobId && j.IsActive)
-                .OrderByDescending(j => j.CreatedAt)
-                .Take(count)
-                .ToListAsync();
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@SearchQuery", DBNull.Value),
+                new SqlParameter("@CategoryId", categoryId),
+                new SqlParameter("@JobTypeId", DBNull.Value),
+                new SqlParameter("@JobType", DBNull.Value),
+                new SqlParameter("@Location", DBNull.Value),
+                new SqlParameter("@ExperienceLevelId", DBNull.Value),
+                new SqlParameter("@MinSalary", DBNull.Value),
+                new SqlParameter("@SortBy", "newest"),
+                new SqlParameter("@PageNumber", 1),
+                new SqlParameter("@PageSize", count + 1)
+            };
+
+            var (jobs, _) = await _spExecutor.ExecuteStoredProcedurePagedListAsync(
+                "dbo.sp_GetFilteredJobs",
+                parameters,
+                "@TotalCount",
+                MapJobFromReader);
+
+            return jobs.FindAll(j => j.Id != excludeJobId).GetRange(0, Math.Min(count, jobs.FindAll(j => j.Id != excludeJobId).Count));
         }
 
         public async Task<List<Category>> GetAllCategoriesAsync()
         {
-            return await _context.Categories
-                .AsNoTracking()
-                .Where(c => c.IsActive)
-                .Include(c => c.Jobs.Where(j => j.IsActive))
-                .OrderBy(c => c.DisplayOrder)
-                .ThenBy(c => c.Name)
-                .ToListAsync();
+            return await _lookupService.GetCategoriesAsync();
         }
 
         public async Task<Job> CreateJobAsync(int employerId, PostJobViewModel model)
         {
-            var job = new Job
+            var outputParam = new SqlParameter("@NewJobId", SqlDbType.Int)
             {
+                Direction = ParameterDirection.Output
+            };
+
+            var parameters = new[]
+            {
+                new SqlParameter("@EmployerId", employerId),
+                new SqlParameter("@Title", model.Title.Trim()),
+                new SqlParameter("@CategoryId", model.CategoryId),
+                new SqlParameter("@JobTypeId", (object?)model.JobTypeId ?? DBNull.Value),
+                new SqlParameter("@JobType", (object?)model.JobType ?? "Full-Time"),
+                new SqlParameter("@Location", model.Location.Trim()),
+                new SqlParameter("@SalaryMin", (object?)model.SalaryMin ?? DBNull.Value),
+                new SqlParameter("@SalaryMax", (object?)model.SalaryMax ?? DBNull.Value),
+                new SqlParameter("@ExperienceLevelId", (object?)model.ExperienceLevelId ?? DBNull.Value),
+                new SqlParameter("@ExperienceLevel", (object?)model.ExperienceLevel ?? "Mid Level"),
+                new SqlParameter("@Description", model.Description.Trim()),
+                new SqlParameter("@Requirements", (object?)model.Requirements?.Trim() ?? DBNull.Value),
+                new SqlParameter("@Responsibilities", (object?)model.Responsibilities?.Trim() ?? DBNull.Value),
+                new SqlParameter("@Deadline", (object?)model.Deadline ?? DBNull.Value),
+                outputParam
+            };
+
+            await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_CreateJob", parameters);
+
+            int newId = outputParam.Value != DBNull.Value ? Convert.ToInt32(outputParam.Value) : 0;
+
+            return new Job
+            {
+                Id = newId,
                 EmployerId = employerId,
-                Title = model.Title.Trim(),
+                Title = model.Title,
                 CategoryId = model.CategoryId,
                 JobTypeId = model.JobTypeId,
-                JobType = model.JobType,
-                Location = model.Location.Trim(),
+                JobType = model.JobType ?? "Full-Time",
+                Location = model.Location,
                 SalaryMin = model.SalaryMin,
                 SalaryMax = model.SalaryMax,
                 ExperienceLevelId = model.ExperienceLevelId,
                 ExperienceLevel = model.ExperienceLevel,
-                Description = model.Description.Trim(),
-                Requirements = model.Requirements?.Trim(),
-                Responsibilities = model.Responsibilities?.Trim(),
-                IsActive = model.IsActive,
-                CreatedAt = DateTime.UtcNow,
-                Deadline = model.Deadline
+                Description = model.Description,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
             };
-
-            _context.Jobs.Add(job);
-            await _context.SaveChangesAsync();
-            return job;
         }
 
         public async Task<bool> UpdateJobAsync(int employerId, PostJobViewModel model)
         {
             if (!model.Id.HasValue) return false;
 
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == model.Id.Value && j.EmployerId == employerId);
-            if (job == null) return false;
+            var parameters = new[]
+            {
+                new SqlParameter("@JobId", model.Id.Value),
+                new SqlParameter("@EmployerId", employerId),
+                new SqlParameter("@Title", model.Title.Trim()),
+                new SqlParameter("@CategoryId", model.CategoryId),
+                new SqlParameter("@JobTypeId", (object?)model.JobTypeId ?? DBNull.Value),
+                new SqlParameter("@JobType", (object?)model.JobType ?? "Full-Time"),
+                new SqlParameter("@Location", model.Location.Trim()),
+                new SqlParameter("@SalaryMin", (object?)model.SalaryMin ?? DBNull.Value),
+                new SqlParameter("@SalaryMax", (object?)model.SalaryMax ?? DBNull.Value),
+                new SqlParameter("@ExperienceLevelId", (object?)model.ExperienceLevelId ?? DBNull.Value),
+                new SqlParameter("@ExperienceLevel", (object?)model.ExperienceLevel ?? "Mid Level"),
+                new SqlParameter("@Description", model.Description.Trim()),
+                new SqlParameter("@Requirements", (object?)model.Requirements?.Trim() ?? DBNull.Value),
+                new SqlParameter("@Responsibilities", (object?)model.Responsibilities?.Trim() ?? DBNull.Value),
+                new SqlParameter("@IsActive", model.IsActive),
+                new SqlParameter("@Deadline", (object?)model.Deadline ?? DBNull.Value)
+            };
 
-            job.Title = model.Title.Trim();
-            job.CategoryId = model.CategoryId;
-            job.JobTypeId = model.JobTypeId;
-            job.JobType = model.JobType;
-            job.Location = model.Location.Trim();
-            job.SalaryMin = model.SalaryMin;
-            job.SalaryMax = model.SalaryMax;
-            job.ExperienceLevelId = model.ExperienceLevelId;
-            job.ExperienceLevel = model.ExperienceLevel;
-            job.Description = model.Description.Trim();
-            job.Requirements = model.Requirements?.Trim();
-            job.Responsibilities = model.Responsibilities?.Trim();
-            job.IsActive = model.IsActive;
-            job.Deadline = model.Deadline;
-            job.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return true;
+            int affected = await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_UpdateJob", parameters);
+            return affected > 0;
         }
 
         public async Task<bool> ToggleJobStatusAsync(int employerId, int jobId)
         {
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == jobId && j.EmployerId == employerId);
-            if (job == null) return false;
+            var job = await GetJobByIdAsync(jobId);
+            if (job == null || job.EmployerId != employerId) return false;
 
-            job.IsActive = !job.IsActive;
-            job.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            return true;
+            var model = new PostJobViewModel
+            {
+                Id = job.Id,
+                Title = job.Title,
+                CategoryId = job.CategoryId,
+                JobTypeId = job.JobTypeId,
+                JobType = job.JobType,
+                Location = job.Location,
+                SalaryMin = job.SalaryMin,
+                SalaryMax = job.SalaryMax,
+                ExperienceLevelId = job.ExperienceLevelId,
+                ExperienceLevel = job.ExperienceLevel,
+                Description = job.Description,
+                Requirements = job.Requirements,
+                Responsibilities = job.Responsibilities,
+                IsActive = !job.IsActive,
+                Deadline = job.Deadline
+            };
+
+            return await UpdateJobAsync(employerId, model);
         }
 
         public async Task<bool> DeleteJobAsync(int employerId, int jobId)
         {
-            var job = await _context.Jobs.FirstOrDefaultAsync(j => j.Id == jobId && j.EmployerId == employerId);
-            if (job == null) return false;
+            var parameters = new[]
+            {
+                new SqlParameter("@JobId", jobId),
+                new SqlParameter("@EmployerId", employerId)
+            };
 
-            _context.Jobs.Remove(job);
-            await _context.SaveChangesAsync();
-            return true;
+            int affected = await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_DeleteJob", parameters);
+            return affected > 0;
         }
 
         public async Task<bool> ToggleSavedJobAsync(int seekerId, int jobId)
         {
-            var saved = await _context.SavedJobs.FirstOrDefaultAsync(s => s.JobId == jobId && s.JobSeekerId == seekerId);
-            if (saved != null)
+            var outputParam = new SqlParameter("@IsSaved", SqlDbType.Bit)
             {
-                _context.SavedJobs.Remove(saved);
-                await _context.SaveChangesAsync();
-                return false;
-            }
-            else
+                Direction = ParameterDirection.Output
+            };
+
+            var parameters = new[]
             {
-                _context.SavedJobs.Add(new SavedJob
-                {
-                    JobId = jobId,
-                    JobSeekerId = seekerId,
-                    SavedAt = DateTime.UtcNow
-                });
-                await _context.SaveChangesAsync();
-                return true;
-            }
+                new SqlParameter("@JobId", jobId),
+                new SqlParameter("@JobSeekerId", seekerId),
+                outputParam
+            };
+
+            await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_ToggleSaveJob", parameters);
+            return outputParam.Value != DBNull.Value && Convert.ToBoolean(outputParam.Value);
         }
 
         public async Task<List<SavedJob>> GetSavedJobsAsync(int seekerId)
         {
-            return await _context.SavedJobs
-                .AsNoTracking()
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(s => s.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(s => s.JobSeekerId == seekerId)
-                .OrderByDescending(s => s.SavedAt)
-                .ToListAsync();
+            var parameters = new[] { new SqlParameter("@JobSeekerId", seekerId) };
+
+            return await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetSavedJobsByUser",
+                parameters,
+                reader => new SavedJob
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("SavedJobId")),
+                    SavedAt = reader.GetDateTime(reader.GetOrdinal("SavedAt")),
+                    JobId = reader.GetInt32(reader.GetOrdinal("JobId")),
+                    JobSeekerId = seekerId,
+                    Job = new Job
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("JobId")),
+                        Title = reader.GetString(reader.GetOrdinal("Title")),
+                        JobType = reader.GetString(reader.GetOrdinal("JobType")),
+                        Location = reader.GetString(reader.GetOrdinal("Location")),
+                        SalaryMin = reader.IsDBNull(reader.GetOrdinal("SalaryMin")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMin")),
+                        SalaryMax = reader.IsDBNull(reader.GetOrdinal("SalaryMax")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMax")),
+                        Deadline = reader.IsDBNull(reader.GetOrdinal("Deadline")) ? null : reader.GetDateTime(reader.GetOrdinal("Deadline")),
+                        IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                        Category = new Category { Name = reader.GetString(reader.GetOrdinal("CategoryName")) },
+                        Employer = new User
+                        {
+                            CompanyProfile = new CompanyProfile
+                            {
+                                CompanyName = reader.IsDBNull(reader.GetOrdinal("CompanyName")) ? "Company" : reader.GetString(reader.GetOrdinal("CompanyName"))
+                            }
+                        }
+                    }
+                });
         }
 
         public async Task<bool> IsJobSavedAsync(int seekerId, int jobId)
         {
-            return await _context.SavedJobs
-                .AsNoTracking()
-                .AnyAsync(s => s.JobId == jobId && s.JobSeekerId == seekerId);
+            var savedList = await GetSavedJobsAsync(seekerId);
+            return savedList.Exists(s => s.JobId == jobId);
+        }
+
+        private static Job MapJobFromReader(DbDataReader reader)
+        {
+            return new Job
+            {
+                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                Title = reader.GetString(reader.GetOrdinal("Title")),
+                EmployerId = reader.GetInt32(reader.GetOrdinal("EmployerId")),
+                CategoryId = reader.GetInt32(reader.GetOrdinal("CategoryId")),
+                JobTypeId = reader.IsDBNull(reader.GetOrdinal("JobTypeId")) ? null : reader.GetInt32(reader.GetOrdinal("JobTypeId")),
+                JobType = reader.GetString(reader.GetOrdinal("JobType")),
+                Location = reader.GetString(reader.GetOrdinal("Location")),
+                SalaryMin = reader.IsDBNull(reader.GetOrdinal("SalaryMin")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMin")),
+                SalaryMax = reader.IsDBNull(reader.GetOrdinal("SalaryMax")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMax")),
+                ExperienceLevelId = reader.IsDBNull(reader.GetOrdinal("ExperienceLevelId")) ? null : reader.GetInt32(reader.GetOrdinal("ExperienceLevelId")),
+                ExperienceLevel = reader.IsDBNull(reader.GetOrdinal("ExperienceLevel")) ? null : reader.GetString(reader.GetOrdinal("ExperienceLevel")),
+                Description = reader.GetString(reader.GetOrdinal("Description")),
+                Requirements = reader.IsDBNull(reader.GetOrdinal("Requirements")) ? null : reader.GetString(reader.GetOrdinal("Requirements")),
+                Responsibilities = reader.IsDBNull(reader.GetOrdinal("Responsibilities")) ? null : reader.GetString(reader.GetOrdinal("Responsibilities")),
+                IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                Deadline = reader.IsDBNull(reader.GetOrdinal("Deadline")) ? null : reader.GetDateTime(reader.GetOrdinal("Deadline")),
+                ViewsCount = reader.GetInt32(reader.GetOrdinal("ViewsCount")),
+                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                Category = new Category
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("CategoryId")),
+                    Name = reader.IsDBNull(reader.GetOrdinal("CategoryName")) ? "General" : reader.GetString(reader.GetOrdinal("CategoryName")),
+                    IconClass = reader.IsDBNull(reader.GetOrdinal("CategoryIcon")) ? "fa-solid fa-briefcase" : reader.GetString(reader.GetOrdinal("CategoryIcon"))
+                },
+                JobTypeEntity = reader.IsDBNull(reader.GetOrdinal("JobTypeId")) ? null : new JobType
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("JobTypeId")),
+                    Name = reader.IsDBNull(reader.GetOrdinal("JobTypeName")) ? reader.GetString(reader.GetOrdinal("JobType")) : reader.GetString(reader.GetOrdinal("JobTypeName")),
+                    BadgeClass = reader.IsDBNull(reader.GetOrdinal("JobTypeBadge")) ? "badge-soft-primary" : reader.GetString(reader.GetOrdinal("JobTypeBadge"))
+                },
+                ExperienceLevelEntity = reader.IsDBNull(reader.GetOrdinal("ExperienceLevelId")) ? null : new ExperienceLevel
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("ExperienceLevelId")),
+                    Title = reader.IsDBNull(reader.GetOrdinal("ExperienceLevelTitle")) ? (reader.IsDBNull(reader.GetOrdinal("ExperienceLevel")) ? "Any" : reader.GetString(reader.GetOrdinal("ExperienceLevel"))) : reader.GetString(reader.GetOrdinal("ExperienceLevelTitle"))
+                },
+                Employer = new User
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("EmployerId")),
+                    CompanyProfile = new CompanyProfile
+                    {
+                        CompanyName = reader.IsDBNull(reader.GetOrdinal("CompanyName")) ? "Company" : reader.GetString(reader.GetOrdinal("CompanyName")),
+                        Location = reader.IsDBNull(reader.GetOrdinal("CompanyLocation")) ? null : reader.GetString(reader.GetOrdinal("CompanyLocation")),
+                        Website = reader.IsDBNull(reader.GetOrdinal("CompanyWebsite")) ? null : reader.GetString(reader.GetOrdinal("CompanyWebsite"))
+                    }
+                }
+            };
+        }
+
+        private static Job MapJobDetailsFromReader(DbDataReader reader)
+        {
+            var job = MapJobFromReader(reader);
+            if (job.Employer != null)
+            {
+                job.Employer.FullName = reader.IsDBNull(reader.GetOrdinal("EmployerName")) ? "Employer" : reader.GetString(reader.GetOrdinal("EmployerName"));
+                job.Employer.Email = reader.IsDBNull(reader.GetOrdinal("EmployerEmail")) ? "" : reader.GetString(reader.GetOrdinal("EmployerEmail"));
+                if (job.Employer.CompanyProfile != null)
+                {
+                    job.Employer.CompanyProfile.Description = reader.IsDBNull(reader.GetOrdinal("CompanyDescription")) ? null : reader.GetString(reader.GetOrdinal("CompanyDescription"));
+                    job.Employer.CompanyProfile.CompanySize = reader.IsDBNull(reader.GetOrdinal("CompanySize")) ? null : reader.GetString(reader.GetOrdinal("CompanySize"));
+                }
+            }
+            return job;
         }
     }
 }

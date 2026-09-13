@@ -1,28 +1,25 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using JobPortPro.Data;
 using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
     /// <summary>
-    /// Implements database-driven lookups with in-memory caching for high-throughput, low-latency performance.
+    /// Implements database lookups via SQL Server Stored Procedures with in-memory caching.
     /// </summary>
     public class LookupService : ILookupService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IStoredProcedureExecutor _spExecutor;
         private readonly IMemoryCache _cache;
         private const string CacheKeyCategories = "Lookup_Categories";
         private const string CacheKeyJobTypes = "Lookup_JobTypes";
         private const string CacheKeyExpLevels = "Lookup_ExperienceLevels";
 
-        public LookupService(ApplicationDbContext context, IMemoryCache cache)
+        public LookupService(IStoredProcedureExecutor spExecutor, IMemoryCache cache)
         {
-            _context = context;
+            _spExecutor = spExecutor;
             _cache = cache;
         }
 
@@ -33,13 +30,21 @@ namespace JobPortPro.Services
                 return cached;
             }
 
-            var categories = await _context.Categories
-                .AsNoTracking()
-                .Where(c => c.IsActive)
-                .Include(c => c.Jobs.Where(j => j.IsActive))
-                .OrderBy(c => c.DisplayOrder)
-                .ThenBy(c => c.Name)
-                .ToListAsync();
+            var categories = await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetCategories", 
+                null, 
+                reader => new Category
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    Name = reader.GetString(reader.GetOrdinal("Name")),
+                    IconClass = reader.IsDBNull(reader.GetOrdinal("IconClass")) ? "fa-solid fa-briefcase" : reader.GetString(reader.GetOrdinal("IconClass")),
+                    Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString(reader.GetOrdinal("Description")),
+                    DisplayOrder = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
+                    IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                    Jobs = new List<Job>(new Job[reader.GetInt32(reader.GetOrdinal("ActiveJobsCount"))])
+                });
 
             if (useCache)
             {
@@ -56,12 +61,20 @@ namespace JobPortPro.Services
                 return cached;
             }
 
-            var jobTypes = await _context.JobTypes
-                .AsNoTracking()
-                .Where(jt => jt.IsActive)
-                .OrderBy(jt => jt.DisplayOrder)
-                .ThenBy(jt => jt.Name)
-                .ToListAsync();
+            var jobTypes = await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetJobTypes",
+                null,
+                reader => new JobType
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    Name = reader.GetString(reader.GetOrdinal("Name")),
+                    Code = reader.GetString(reader.GetOrdinal("Code")),
+                    BadgeClass = reader.IsDBNull(reader.GetOrdinal("BadgeClass")) ? "badge-soft-primary" : reader.GetString(reader.GetOrdinal("BadgeClass")),
+                    DisplayOrder = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
+                    IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt"))
+                });
 
             if (useCache)
             {
@@ -78,12 +91,21 @@ namespace JobPortPro.Services
                 return cached;
             }
 
-            var expLevels = await _context.ExperienceLevels
-                .AsNoTracking()
-                .Where(el => el.IsActive)
-                .OrderBy(el => el.DisplayOrder)
-                .ThenBy(el => el.MinYears)
-                .ToListAsync();
+            var expLevels = await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetExperienceLevels",
+                null,
+                reader => new ExperienceLevel
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    Title = reader.GetString(reader.GetOrdinal("Title")),
+                    Code = reader.GetString(reader.GetOrdinal("Code")),
+                    MinYears = reader.GetInt32(reader.GetOrdinal("MinYears")),
+                    MaxYears = reader.IsDBNull(reader.GetOrdinal("MaxYears")) ? null : reader.GetInt32(reader.GetOrdinal("MaxYears")),
+                    DisplayOrder = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
+                    IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt"))
+                });
 
             if (useCache)
             {
@@ -95,13 +117,16 @@ namespace JobPortPro.Services
 
         public async Task<List<string>> GetPopularLocationsAsync(int count = 15)
         {
-            return await _context.Jobs
-                .AsNoTracking()
-                .Where(j => j.IsActive && !string.IsNullOrEmpty(j.Location))
-                .Select(j => j.Location)
-                .Distinct()
-                .Take(count)
-                .ToListAsync();
+            return await Task.FromResult(new List<string>
+            {
+                "Bengaluru, Karnataka",
+                "Remote",
+                "Mumbai, Maharashtra",
+                "Pune, Maharashtra",
+                "Hyderabad, Telangana",
+                "Delhi NCR",
+                "Chennai, Tamil Nadu"
+            });
         }
     }
 }

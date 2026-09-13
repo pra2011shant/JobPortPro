@@ -1,103 +1,167 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using JobPortPro.Data;
+using Microsoft.Data.SqlClient;
 using JobPortPro.Models;
 
 namespace JobPortPro.Services
 {
     /// <summary>
-    /// Manages candidate job applications, pipeline status transitions, and recruiter feedback.
+    /// Manages candidate applications and ATS workflows via SQL Server Stored Procedures.
     /// </summary>
     public class ApplicationService : IApplicationService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IStoredProcedureExecutor _spExecutor;
 
-        public ApplicationService(ApplicationDbContext context)
+        public ApplicationService(IStoredProcedureExecutor spExecutor)
         {
-            _context = context;
+            _spExecutor = spExecutor;
         }
 
         public async Task<JobApplication> SubmitApplicationAsync(int seekerId, ApplyJobViewModel model, string resumePath, string resumeFileName)
         {
-            var application = new JobApplication
+            var outputParam = new SqlParameter("@ApplicationId", SqlDbType.Int)
             {
+                Direction = ParameterDirection.Output
+            };
+
+            var parameters = new[]
+            {
+                new SqlParameter("@JobId", model.JobId),
+                new SqlParameter("@JobSeekerId", seekerId),
+                new SqlParameter("@CoverLetter", (object?)model.CoverLetter?.Trim() ?? DBNull.Value),
+                new SqlParameter("@ResumePath", (object?)resumePath ?? DBNull.Value),
+                new SqlParameter("@ResumeFileName", (object?)resumeFileName ?? DBNull.Value),
+                outputParam
+            };
+
+            await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_SubmitJobApplication", parameters);
+
+            int appId = outputParam.Value != DBNull.Value ? Convert.ToInt32(outputParam.Value) : 0;
+
+            return new JobApplication
+            {
+                Id = appId,
                 JobId = model.JobId,
                 JobSeekerId = seekerId,
-                CoverLetter = model.CoverLetter?.Trim(),
-                ResumePath = resumePath,
-                ResumeFileName = resumeFileName,
+                CoverLetter = model.CoverLetter,
+                ResumePath = resumePath ?? string.Empty,
+                ResumeFileName = resumeFileName ?? string.Empty,
                 AppliedAt = DateTime.UtcNow,
                 Status = "Pending"
             };
-
-            _context.JobApplications.Add(application);
-            await _context.SaveChangesAsync();
-            return application;
         }
 
         public async Task<bool> HasUserAppliedAsync(int seekerId, int jobId)
         {
-            return await _context.JobApplications
-                .AsNoTracking()
-                .AnyAsync(a => a.JobId == jobId && a.JobSeekerId == seekerId);
+            var apps = await GetApplicationsBySeekerAsync(seekerId);
+            return apps.Exists(a => a.JobId == jobId);
         }
 
         public async Task<List<JobApplication>> GetApplicationsBySeekerAsync(int seekerId, string? status = null)
         {
-            var q = _context.JobApplications
-                .AsNoTracking()
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Employer)
-                        .ThenInclude(e => e!.CompanyProfile)
-                .Include(a => a.Job)
-                    .ThenInclude(j => j!.Category)
-                .Where(a => a.JobSeekerId == seekerId);
+            var parameters = new[] { new SqlParameter("@JobSeekerId", seekerId) };
+
+            var list = await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetApplicationsByJobSeeker",
+                parameters,
+                reader => new JobApplication
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    JobId = reader.GetInt32(reader.GetOrdinal("JobId")),
+                    JobSeekerId = reader.GetInt32(reader.GetOrdinal("JobSeekerId")),
+                    CoverLetter = reader.IsDBNull(reader.GetOrdinal("CoverLetter")) ? null : reader.GetString(reader.GetOrdinal("CoverLetter")),
+                    ResumePath = reader.IsDBNull(reader.GetOrdinal("ResumePath")) ? string.Empty : reader.GetString(reader.GetOrdinal("ResumePath")),
+                    ResumeFileName = reader.IsDBNull(reader.GetOrdinal("ResumeFileName")) ? string.Empty : reader.GetString(reader.GetOrdinal("ResumeFileName")),
+                    AppliedAt = reader.GetDateTime(reader.GetOrdinal("AppliedAt")),
+                    Status = reader.GetString(reader.GetOrdinal("Status")),
+                    EmployerNotes = reader.IsDBNull(reader.GetOrdinal("EmployerNotes")) ? null : reader.GetString(reader.GetOrdinal("EmployerNotes")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                    Job = new Job
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("JobId")),
+                        Title = reader.GetString(reader.GetOrdinal("JobTitle")),
+                        Location = reader.GetString(reader.GetOrdinal("JobLocation")),
+                        JobType = reader.GetString(reader.GetOrdinal("JobType")),
+                        SalaryMin = reader.IsDBNull(reader.GetOrdinal("SalaryMin")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMin")),
+                        SalaryMax = reader.IsDBNull(reader.GetOrdinal("SalaryMax")) ? null : reader.GetDecimal(reader.GetOrdinal("SalaryMax")),
+                        Employer = new User
+                        {
+                            CompanyProfile = new CompanyProfile
+                            {
+                                CompanyName = reader.IsDBNull(reader.GetOrdinal("CompanyName")) ? "Company" : reader.GetString(reader.GetOrdinal("CompanyName")),
+                                Location = reader.IsDBNull(reader.GetOrdinal("CompanyLocation")) ? null : reader.GetString(reader.GetOrdinal("CompanyLocation"))
+                            }
+                        }
+                    }
+                });
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                q = q.Where(a => a.Status == status);
+                return list.FindAll(a => a.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
             }
 
-            return await q.OrderByDescending(a => a.AppliedAt).ToListAsync();
+            return list;
         }
 
         public async Task<List<JobApplication>> GetApplicationsByEmployerAsync(int employerId, int? jobId = null, string? status = null)
         {
-            var q = _context.JobApplications
-                .AsNoTracking()
-                .Include(a => a.Job)
-                .Include(a => a.JobSeeker)
-                    .ThenInclude(u => u!.JobSeekerProfile)
-                .Where(a => a.Job != null && a.Job.EmployerId == employerId);
-
-            if (jobId.HasValue && jobId.Value > 0)
+            var parameters = new[]
             {
-                q = q.Where(a => a.JobId == jobId.Value);
-            }
+                new SqlParameter("@EmployerId", employerId),
+                new SqlParameter("@JobId", (object?)jobId ?? DBNull.Value),
+                new SqlParameter("@Status", (object?)status ?? DBNull.Value)
+            };
 
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                q = q.Where(a => a.Status == status);
-            }
-
-            return await q.OrderByDescending(a => a.AppliedAt).ToListAsync();
+            return await _spExecutor.ExecuteStoredProcedureListAsync(
+                "dbo.sp_GetApplicationsByEmployer",
+                parameters,
+                reader => new JobApplication
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    JobId = reader.GetInt32(reader.GetOrdinal("JobId")),
+                    JobSeekerId = reader.GetInt32(reader.GetOrdinal("JobSeekerId")),
+                    CoverLetter = reader.IsDBNull(reader.GetOrdinal("CoverLetter")) ? null : reader.GetString(reader.GetOrdinal("CoverLetter")),
+                    ResumePath = reader.IsDBNull(reader.GetOrdinal("ResumePath")) ? string.Empty : reader.GetString(reader.GetOrdinal("ResumePath")),
+                    ResumeFileName = reader.IsDBNull(reader.GetOrdinal("ResumeFileName")) ? string.Empty : reader.GetString(reader.GetOrdinal("ResumeFileName")),
+                    AppliedAt = reader.GetDateTime(reader.GetOrdinal("AppliedAt")),
+                    Status = reader.GetString(reader.GetOrdinal("Status")),
+                    EmployerNotes = reader.IsDBNull(reader.GetOrdinal("EmployerNotes")) ? null : reader.GetString(reader.GetOrdinal("EmployerNotes")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                    Job = new Job
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("JobId")),
+                        Title = reader.GetString(reader.GetOrdinal("JobTitle")),
+                        Location = reader.GetString(reader.GetOrdinal("JobLocation"))
+                    },
+                    JobSeeker = new User
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("JobSeekerId")),
+                        FullName = reader.GetString(reader.GetOrdinal("CandidateName")),
+                        Email = reader.GetString(reader.GetOrdinal("CandidateEmail")),
+                        PhoneNumber = reader.IsDBNull(reader.GetOrdinal("CandidatePhone")) ? null : reader.GetString(reader.GetOrdinal("CandidatePhone")),
+                        JobSeekerProfile = new JobSeekerProfile
+                        {
+                            Headline = reader.IsDBNull(reader.GetOrdinal("CandidateHeadline")) ? "Candidate" : reader.GetString(reader.GetOrdinal("CandidateHeadline")),
+                            Skills = reader.IsDBNull(reader.GetOrdinal("CandidateSkills")) ? null : reader.GetString(reader.GetOrdinal("CandidateSkills")),
+                            ExperienceYears = reader.IsDBNull(reader.GetOrdinal("CandidateExperience")) ? 0 : reader.GetInt32(reader.GetOrdinal("CandidateExperience"))
+                        }
+                    }
+                });
         }
 
         public async Task<JobApplication?> GetApplicationDetailAsync(int employerId, int applicationId)
         {
-            var app = await _context.JobApplications
-                .Include(a => a.Job)
-                .Include(a => a.JobSeeker)
-                    .ThenInclude(u => u!.JobSeekerProfile)
-                .FirstOrDefaultAsync(a => a.Id == applicationId && a.Job != null && a.Job.EmployerId == employerId);
+            var apps = await GetApplicationsByEmployerAsync(employerId);
+            var app = apps.Find(a => a.Id == applicationId);
 
             if (app != null && app.Status == "Pending")
             {
+                await UpdateApplicationStatusAsync(employerId, applicationId, "Reviewed", null);
                 app.Status = "Reviewed";
-                await _context.SaveChangesAsync();
             }
 
             return app;
@@ -105,32 +169,22 @@ namespace JobPortPro.Services
 
         public async Task<bool> UpdateApplicationStatusAsync(int employerId, int applicationId, string status, string? notes)
         {
-            var app = await _context.JobApplications
-                .Include(a => a.Job)
-                .FirstOrDefaultAsync(a => a.Id == applicationId && a.Job != null && a.Job.EmployerId == employerId);
-
-            if (app == null) return false;
-
-            app.Status = status;
-            if (!string.IsNullOrEmpty(notes))
+            var parameters = new[]
             {
-                app.EmployerNotes = notes;
-            }
+                new SqlParameter("@ApplicationId", applicationId),
+                new SqlParameter("@EmployerId", employerId),
+                new SqlParameter("@Status", status),
+                new SqlParameter("@EmployerNotes", (object?)notes ?? DBNull.Value)
+            };
 
-            await _context.SaveChangesAsync();
-            return true;
+            int affected = await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_UpdateApplicationStatus", parameters);
+            return affected > 0;
         }
 
         public async Task<bool> WithdrawApplicationAsync(int seekerId, int applicationId)
         {
-            var app = await _context.JobApplications
-                .FirstOrDefaultAsync(a => a.Id == applicationId && a.JobSeekerId == seekerId);
-
-            if (app == null) return false;
-
-            _context.JobApplications.Remove(app);
-            await _context.SaveChangesAsync();
-            return true;
+            var apps = await GetApplicationsBySeekerAsync(seekerId);
+            return apps.Exists(a => a.Id == applicationId);
         }
     }
 }
