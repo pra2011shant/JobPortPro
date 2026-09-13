@@ -5,96 +5,106 @@
 
 <div class="container py-4">
     <!-- Header Banner -->
-    <div class="mb-4">
-        <h2 class="fw-bold mb-1">Explore Available Positions</h2>
-        <p class="text-muted small mb-0">Showing @Model.TotalItems verified opportunities matching your criteria</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Explore Available Positions</h2>
+            <p class="text-muted small mb-0">Showing @Model.TotalItems verified opportunities matching your criteria</p>
+        </div>
+        <!-- Mobile Filter Toggle Button -->
+        <div class="d-lg-none mt-2 mt-sm-0">
+            <button class="btn btn-outline-primary rounded-pill px-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSidebarCollapse">
+                <i class="fa-solid fa-sliders me-1"></i> Toggle Filters
+            </button>
+        </div>
     </div>
 
     <div class="row g-4">
         <!-- Filter Sidebar -->
         <div class="col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white sticky-top" style="top: 80px; z-index: 10;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-filter me-2 text-primary"></i>Filters</h5>
-                    <a asp-action="Index" class="text-primary small text-decoration-none fw-semibold">Reset</a>
+            <div class="collapse d-lg-block" id="filterSidebarCollapse">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white sticky-top" style="top: 80px; z-index: 10;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0"><i class="fa-solid fa-filter me-2 text-primary"></i>Filters</h5>
+                        <a asp-action="Index" class="text-primary small text-decoration-none fw-semibold">Reset</a>
+                    </div>
+
+                    <form asp-action="Index" method="get">
+                        <!-- Search Query -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Keywords</label>
+                            <input type="text" name="q" value="@Model.Query" class="form-control form-control-sm" placeholder="Title, skills, company..." />
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Industry Category</label>
+                            <select name="categoryId" class="form-select form-select-sm">
+                                <option value="">All Categories</option>
+                                @foreach (var cat in Model.Categories)
+                                {
+                                    if (Model.CategoryId == cat.Id)
+                                    {
+                                        <option value="@cat.Id" selected>@cat.Name</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@cat.Id">@cat.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Job Type -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Job Type</label>
+                            <select name="jobType" class="form-select form-select-sm">
+                                <option value="">All Job Types</option>
+                                @foreach (var type in Model.JobTypes)
+                                {
+                                    if (Model.JobType == type)
+                                    {
+                                        <option value="@type" selected>@type</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@type">@type</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Location -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Location</label>
+                            <input type="text" name="location" value="@Model.Location" class="form-control form-control-sm" placeholder="e.g. Bengaluru or Remote" />
+                        </div>
+
+                        <!-- Experience Level -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Experience Level</label>
+                            <select name="experienceLevel" class="form-select form-select-sm">
+                                <option value="">All Levels</option>
+                                <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
+                                <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
+                                <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
+                                <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director</option>
+                            </select>
+                        </div>
+
+                        <!-- Minimum Salary -->
+                        <div class="mb-4">
+                            <label class="form-label small fw-semibold text-muted">Min Salary (Annual)</label>
+                            <input type="number" step="100000" name="minSalary" value="@Model.MinSalary" class="form-control form-control-sm" placeholder="e.g. 800000" />
+                        </div>
+
+                        <!-- Hidden SortBy for persistence -->
+                        <input type="hidden" name="sortBy" value="@Model.SortBy" />
+
+                        <button type="submit" class="btn btn-primary w-100 btn-sm rounded-3 py-2 fw-semibold">
+                            Apply Filters
+                        </button>
+                    </form>
                 </div>
-
-                <form asp-action="Index" method="get">
-                    <!-- Search Query -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-muted">Keywords</label>
-                        <input type="text" name="q" value="@Model.Query" class="form-control form-control-sm" placeholder="Title, skills, company..." />
-                    </div>
-
-                    <!-- Category -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-muted">Industry Category</label>
-                        <select name="categoryId" class="form-select form-select-sm">
-                            <option value="">All Categories</option>
-                            @foreach (var cat in Model.Categories)
-                            {
-                                if (Model.CategoryId == cat.Id)
-                                {
-                                    <option value="@cat.Id" selected>@cat.Name</option>
-                                }
-                                else
-                                {
-                                    <option value="@cat.Id">@cat.Name</option>
-                                }
-                            }
-                        </select>
-                    </div>
-
-                    <!-- Job Type -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-muted">Job Type</label>
-                        <select name="jobType" class="form-select form-select-sm">
-                            <option value="">All Job Types</option>
-                            @foreach (var type in Model.JobTypes)
-                            {
-                                if (Model.JobType == type)
-                                {
-                                    <option value="@type" selected>@type</option>
-                                }
-                                else
-                                {
-                                    <option value="@type">@type</option>
-                                }
-                            }
-                        </select>
-                    </div>
-
-                    <!-- Location -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-muted">Location</label>
-                        <input type="text" name="location" value="@Model.Location" class="form-control form-control-sm" placeholder="e.g. Bengaluru or Remote" />
-                    </div>
-
-                    <!-- Experience Level -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-muted">Experience Level</label>
-                        <select name="experienceLevel" class="form-select form-select-sm">
-                            <option value="">All Levels</option>
-                            <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
-                            <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
-                            <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
-                            <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director</option>
-                        </select>
-                    </div>
-
-                    <!-- Minimum Salary -->
-                    <div class="mb-4">
-                        <label class="form-label small fw-semibold text-muted">Min Salary (Annual)</label>
-                        <input type="number" step="100000" name="minSalary" value="@Model.MinSalary" class="form-control form-control-sm" placeholder="e.g. 800000" />
-                    </div>
-
-                    <!-- Hidden SortBy for persistence -->
-                    <input type="hidden" name="sortBy" value="@Model.SortBy" />
-
-                    <button type="submit" class="btn btn-primary w-100 btn-sm rounded-3 py-2 fw-semibold">
-                        Apply Filters
-                    </button>
-                </form>
             </div>
         </div>
 
