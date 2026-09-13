@@ -190,8 +190,14 @@ namespace JobPortPro.Controllers
 
             if (user == null)
             {
-                return NotFound();
+                return RedirectToAction("Login", "Account");
             }
+
+            // Sync Immutable Fields from Verified Account
+            model.Email = user.Email;
+            model.Role = user.Role;
+            ModelState.Remove(nameof(model.Email));
+            ModelState.Remove(nameof(model.Role));
 
             if (ModelState.IsValid)
             {
@@ -238,6 +244,14 @@ namespace JobPortPro.Controllers
 
                 TempData["SuccessMessage"] = "Your profile has been updated successfully!";
                 return RedirectToAction(nameof(Profile));
+            }
+
+            // Repopulate Existing Display Values on Validation Failure
+            model.ProfilePicture = user.ProfilePicture;
+            if (user.Role == "JobSeeker" && user.JobSeekerProfile != null)
+            {
+                model.ResumeFileName = user.JobSeekerProfile.ResumeFileName;
+                model.ResumeFilePath = user.JobSeekerProfile.ResumeFilePath;
             }
 
             return View(model);
