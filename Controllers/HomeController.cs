@@ -50,30 +50,6 @@ namespace JobPortPro.Controllers
             return View(model);
         }
 
-        public IActionResult About()
-        {
-            return View();
-        }
-
-        public IActionResult Contact()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Contact(string name, string email, string subject, string message)
-        {
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(message))
-            {
-                ModelState.AddModelError(string.Empty, "Please fill in all required fields.");
-                return View();
-            }
-
-            TempData["SuccessMessage"] = "Thank you for reaching out! We have received your message and will respond shortly.";
-            return RedirectToAction(nameof(Contact));
-        }
-
         public IActionResult Privacy()
         {
             return View();
