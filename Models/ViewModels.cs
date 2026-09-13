@@ -50,6 +50,31 @@ namespace JobPortPro.Models
         public string? ReturnUrl { get; set; }
     }
 
+    public class ForgotPasswordViewModel
+    {
+        [Required(ErrorMessage = "Email Address is required")]
+        [EmailAddress(ErrorMessage = "Invalid Email Address")]
+        [Display(Name = "Your Registered Email Address")]
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordViewModel
+    {
+        [Required]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "New Password is required")]
+        [StringLength(100, ErrorMessage = "{0} must be at least {2} characters long", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "New Password")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm New Password")]
+        [Compare("NewPassword", ErrorMessage = "New password and confirmation do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
     public class JobFilterViewModel
     {
         public string? Query { get; set; }

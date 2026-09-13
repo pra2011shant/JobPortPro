@@ -243,6 +243,65 @@ namespace JobPortPro.Controllers
             return View(model);
         }
 
+        // GET: /Account/ForgotPassword
+        [HttpGet]
+        public IActionResult ForgotPassword()
+        {
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+            return View();
+        }
+
+        // POST: /Account/ForgotPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                bool exists = await _authService.CheckEmailExistsAsync(model.Email);
+                if (exists)
+                {
+                    return RedirectToAction(nameof(ResetPassword), new { email = model.Email });
+                }
+
+                ModelState.AddModelError("Email", "No account registered with this email address.");
+            }
+            return View(model);
+        }
+
+        // GET: /Account/ResetPassword
+        [HttpGet]
+        public IActionResult ResetPassword(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+            return View(new ResetPasswordViewModel { Email = email });
+        }
+
+        // POST: /Account/ResetPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                bool updated = await _authService.ResetPasswordAsync(model.Email, model.NewPassword);
+                if (updated)
+                {
+                    TempData["SuccessMessage"] = "Your password has been reset successfully. Please sign in with your new password.";
+                    return RedirectToAction(nameof(Login));
+                }
+
+                ModelState.AddModelError(string.Empty, "Unable to reset password. Please check your email address.");
+            }
+            return View(model);
+        }
+
         // GET: /Account/AccessDenied
         [HttpGet]
         public IActionResult AccessDenied()

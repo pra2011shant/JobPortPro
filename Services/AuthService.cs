@@ -165,5 +165,36 @@ namespace JobPortPro.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> CheckEmailExistsAsync(string email)
+        {
+            var parameters = new[] { new SqlParameter("@Email", email.Trim().ToLower()) };
+            var user = await _spExecutor.ExecuteStoredProcedureSingleAsync(
+                "dbo.sp_GetUserByEmail",
+                parameters,
+                reader => reader.GetInt32(reader.GetOrdinal("Id")));
+
+            return user > 0;
+        }
+
+        public async Task<bool> ResetPasswordAsync(string email, string newPassword)
+        {
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var outputParam = new SqlParameter("@Success", SqlDbType.Bit)
+            {
+                Direction = ParameterDirection.Output
+            };
+
+            var parameters = new[]
+            {
+                new SqlParameter("@Email", email.Trim().ToLower()),
+                new SqlParameter("@NewPasswordHash", passwordHash),
+                outputParam
+            };
+
+            await _spExecutor.ExecuteStoredProcedureNonQueryAsync("dbo.sp_UpdateUserPassword", parameters);
+
+            return outputParam.Value != DBNull.Value && Convert.ToBoolean(outputParam.Value);
+        }
     }
 }

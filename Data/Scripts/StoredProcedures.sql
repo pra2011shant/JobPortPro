@@ -934,3 +934,28 @@ BEGIN
     ORDER BY sj.SavedAt DESC;
 END;
 GO
+
+-- 19. Update / Reset User Password
+CREATE OR ALTER PROCEDURE dbo.sp_UpdateUserPassword
+    @Email NVARCHAR(256),
+    @NewPasswordHash NVARCHAR(500),
+    @Success BIT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1 FROM dbo.Users WHERE Email = @Email)
+    BEGIN
+        UPDATE dbo.Users 
+        SET PasswordHash = @NewPasswordHash, 
+            UpdatedAt = SYSUTCDATETIME()
+        WHERE Email = @Email;
+
+        SET @Success = 1;
+    END
+    ELSE
+    BEGIN
+        SET @Success = 0;
+    END
+END;
+GO

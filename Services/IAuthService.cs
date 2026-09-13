@@ -9,5 +9,7 @@ namespace JobPortPro.Services
         Task<User?> ValidateCredentialsAsync(string email, string password);
         Task<User?> GetUserByIdAsync(int userId);
         Task<bool> UpdateProfileAsync(int userId, ProfileViewModel model, string? avatarPath, string? resumePath, string? resumeFileName);
+        Task<bool> ResetPasswordAsync(string email, string newPassword);
+        Task<bool> CheckEmailExistsAsync(string email);
     }
 }
