@@ -1,0 +1,110 @@
+@model JobPortPro.Models.AdminJobsViewModel
+@{
+    ViewData["Title"] = "Job Postings Management";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h2 class="fw-bold mb-1">Job Postings Management</h2>
+            <p class="text-muted small mb-0">Review, toggle status, and moderate all jobs posted on the platform</p>
+        </div>
+        <a asp-action="Dashboard" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="fa-solid fa-arrow-left me-1"></i> Admin Dashboard
+        </a>
+    </div>
+
+    <!-- Search & Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-0 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="text" name="search" value="@Model.SearchQuery" class="form-control bg-light border-0" placeholder="Search by job title or location..." />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select name="categoryId" class="form-select bg-light border-0">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in Model.Categories)
+                    {
+                        <option value="@cat.Id" selected="@(Model.CategoryId == cat.Id)">@cat.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 rounded-pill">
+                    Filter Jobs
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Jobs Table -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Job Title & Location</th>
+                        <th>Company</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Posted</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Jobs.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-briefcase fs-1 d-block mb-2 opacity-50"></i>
+                                No jobs found matching your filter criteria.
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var job in Model.Jobs)
+                    {
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">
+                                    <a asp-controller="Jobs" asp-action="Details" asp-route-id="@job.Id" target="_blank" class="text-dark text-decoration-none">
+                                        @job.Title <i class="fa-solid fa-arrow-up-right-from-square small text-muted ms-1"></i>
+                                    </a>
+                                </div>
+                                <small class="text-muted"><i class="fa-solid fa-location-dot me-1"></i>@job.Location</small>
+                            </td>
+                            <td class="small fw-semibold">@(job.Employer?.CompanyProfile?.CompanyName ?? "Company")</td>
+                            <td class="small">@(job.Category?.Name ?? "General")</td>
+                            <td>
+                                <span class="badge bg-light text-dark rounded-pill border">@job.JobType</span>
+                            </td>
+                            <td>
+                                <span class="badge @(job.IsActive ? "bg-success" : "bg-secondary") rounded-pill px-3 py-1">
+                                    @(job.IsActive ? "Active" : "Closed")
+                                </span>
+                            </td>
+                            <td class="small text-muted">@job.CreatedAt.ToString("MMM dd, yyyy")</td>
+                            <td class="text-end pe-4">
+                                <form asp-action="ToggleJobStatus" asp-route-id="@job.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm @(job.IsActive ? "btn-outline-warning" : "btn-outline-success") rounded-pill px-2 py-1 me-1" title="Toggle Status">
+                                        <i class="fa-solid @(job.IsActive ? "fa-eye-slash" : "fa-eye")"></i>
+                                    </button>
+                                </form>
+                                <form asp-action="DeleteJob" asp-route-id="@job.Id" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this job?');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2 py-1" title="Delete Job">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

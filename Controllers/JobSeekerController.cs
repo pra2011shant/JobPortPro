@@ -13,11 +13,71 @@ namespace JobPortPro.Controllers
     {
         private readonly IJobService _jobService;
         private readonly IApplicationService _applicationService;
+        private readonly IAuthService _authService;
 
-        public JobSeekerController(IJobService jobService, IApplicationService applicationService)
+        public JobSeekerController(
+            IJobService jobService, 
+            IApplicationService applicationService,
+            IAuthService authService)
         {
             _jobService = jobService;
             _applicationService = applicationService;
+            _authService = authService;
+        }
+
+        // GET: /JobSeeker/ResumeBuilder
+        [HttpGet]
+        public async Task<IActionResult> ResumeBuilder()
+        {
+            int seekerId = GetCurrentUserId();
+            var user = await _authService.GetUserByIdAsync(seekerId);
+            if (user == null) return NotFound();
+
+            var model = new ResumeBuilderViewModel
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Headline = user.JobSeekerProfile?.Headline ?? "Software Professional",
+                Summary = user.Bio ?? "Experienced software engineer dedicated to building scalable and robust web applications.",
+                Skills = user.JobSeekerProfile?.Skills ?? "C#, ASP.NET Core, SQL Server, Entity Framework, JavaScript, HTML5, CSS3, REST APIs, Git",
+                EducationDetails = user.JobSeekerProfile?.Education ?? "Bachelor of Technology in Computer Science",
+                ExperienceDetails = $"• Software Engineer at Enterprise Tech (2022 - Present)\n  - Developed high-throughput REST APIs and MVC web applications.\n  - Optimized SQL Server stored procedures and database queries.\n• Associate Developer (2020 - 2022)\n  - Built responsive UI components using Bootstrap 5 and JavaScript.",
+                ProjectsDetails = "• JobPortPro: Enterprise Job Portal built with ASP.NET Core MVC & SQL Server Stored Procedures.\n• Cloud Inventory System: Distributed microservices application with Azure deployment.",
+                Certifications = "Microsoft Certified: Azure Fundamentals (AZ-900)\nASP.NET Core Architecture Specialization",
+                GitHubUrl = user.JobSeekerProfile?.GitHubUrl ?? "https://github.com/",
+                LinkedInUrl = user.JobSeekerProfile?.LinkedInUrl ?? "https://linkedin.com/in/"
+            };
+
+            return View(model);
+        }
+
+        // POST: /JobSeeker/ResumeBuilder
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResumeBuilder(ResumeBuilderViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                int seekerId = GetCurrentUserId();
+                var profileModel = new ProfileViewModel
+                {
+                    UserId = seekerId,
+                    FullName = model.FullName,
+                    Email = model.Email,
+                    PhoneNumber = model.PhoneNumber,
+                    Bio = model.Summary,
+                    Headline = model.Headline,
+                    Skills = model.Skills,
+                    Education = model.EducationDetails,
+                    GitHubUrl = model.GitHubUrl,
+                    LinkedInUrl = model.LinkedInUrl
+                };
+
+                await _authService.UpdateProfileAsync(seekerId, profileModel, null, null, null);
+                TempData["SuccessMessage"] = "Your resume and profile skills have been synchronized successfully!";
+            }
+            return View(model);
         }
 
         // GET: /JobSeeker/Dashboard

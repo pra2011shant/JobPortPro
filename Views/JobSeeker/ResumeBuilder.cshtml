@@ -1,0 +1,208 @@
+@model JobPortPro.Models.ResumeBuilderViewModel
+@{
+    ViewData["Title"] = "Interactive Resume Builder";
+}
+
+<div class="container py-4">
+    <!-- Header with Action Buttons -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 mb-2 fw-semibold">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> AI-Powered Career Tools
+            </span>
+            <h2 class="fw-bold mb-0">Professional Resume Builder</h2>
+            <p class="text-muted small mb-0">Build, customize, and export a modern ATS-friendly resume in seconds.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-dark rounded-pill px-4" onclick="window.print()">
+                <i class="fa-solid fa-print me-1"></i> Print / Save as PDF
+            </button>
+            <a asp-action="Dashboard" class="btn btn-outline-secondary rounded-pill px-3">
+                <i class="fa-solid fa-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Form Inputs -->
+        <div class="col-lg-6 d-print-none">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <h5 class="fw-bold mb-3 border-bottom pb-2">
+                    <i class="fa-solid fa-pen-to-square text-primary me-2"></i>Resume Information
+                </h5>
+
+                <form asp-action="ResumeBuilder" method="post" id="resumeForm">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+                    <!-- Personal Info -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="FullName" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="FullName" id="inputName" class="form-control" oninput="updatePreview()" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Headline" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="Headline" id="inputHeadline" class="form-control" oninput="updatePreview()" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="Email" id="inputEmail" class="form-control" oninput="updatePreview()" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PhoneNumber" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="PhoneNumber" id="inputPhone" class="form-control" oninput="updatePreview()" />
+                        </div>
+                    </div>
+
+                    <!-- Executive Summary -->
+                    <div class="mb-3">
+                        <label asp-for="Summary" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="Summary" id="inputSummary" class="form-control" rows="3" oninput="updatePreview()"></textarea>
+                    </div>
+
+                    <!-- Technical Skills -->
+                    <div class="mb-3">
+                        <label asp-for="Skills" class="form-label fw-semibold small text-muted"></label>
+                        <input asp-for="Skills" id="inputSkills" class="form-control" placeholder="C#, ASP.NET Core, SQL Server, JavaScript..." oninput="updatePreview()" />
+                        <small class="text-muted">Separate skills with commas.</small>
+                    </div>
+
+                    <!-- Work Experience -->
+                    <div class="mb-3">
+                        <label asp-for="ExperienceDetails" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="ExperienceDetails" id="inputExperience" class="form-control" rows="4" oninput="updatePreview()"></textarea>
+                    </div>
+
+                    <!-- Education -->
+                    <div class="mb-3">
+                        <label asp-for="EducationDetails" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="EducationDetails" id="inputEducation" class="form-control" rows="2" oninput="updatePreview()"></textarea>
+                    </div>
+
+                    <!-- Projects -->
+                    <div class="mb-3">
+                        <label asp-for="ProjectsDetails" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="ProjectsDetails" id="inputProjects" class="form-control" rows="3" oninput="updatePreview()"></textarea>
+                    </div>
+
+                    <!-- Certifications -->
+                    <div class="mb-3">
+                        <label asp-for="Certifications" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="Certifications" id="inputCertifications" class="form-control" rows="2" oninput="updatePreview()"></textarea>
+                    </div>
+
+                    <!-- Links -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="GitHubUrl" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="GitHubUrl" id="inputGithub" class="form-control" oninput="updatePreview()" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="LinkedInUrl" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="LinkedInUrl" id="inputLinkedin" class="form-control" oninput="updatePreview()" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold rounded-pill shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Sync & Save with Profile
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right: Live ATS Resume Preview -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5 bg-white resume-preview-card position-sticky" style="top: 20px;">
+                <!-- Resume Header -->
+                <div class="border-bottom pb-4 mb-4 text-center text-md-start">
+                    <h2 class="fw-bold text-dark mb-1" id="prevName">@Model.FullName</h2>
+                    <h5 class="text-primary fw-semibold mb-3" id="prevHeadline">@Model.Headline</h5>
+                    <div class="d-flex flex-wrap justify-content-center justify-content-md-start gap-3 small text-muted">
+                        <span id="prevEmail"><i class="fa-solid fa-envelope me-1 text-primary"></i>@Model.Email</span>
+                        <span id="prevPhone"><i class="fa-solid fa-phone me-1 text-primary"></i>@Model.PhoneNumber</span>
+                    </div>
+                </div>
+
+                <!-- Professional Summary -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Executive Summary</h6>
+                    <p class="text-secondary small mb-0" id="prevSummary" style="white-space: pre-line; line-height: 1.6;">@Model.Summary</p>
+                </div>
+
+                <!-- Core Skills -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Technical & Core Skills</h6>
+                    <div class="d-flex flex-wrap gap-1" id="prevSkills">
+                        @if (!string.IsNullOrWhiteSpace(Model.Skills))
+                        {
+                            foreach (var s in Model.Skills.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                <span class="badge bg-light text-dark border px-2 py-1 small">@s.Trim()</span>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Experience -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Work Experience</h6>
+                    <div class="text-secondary small" id="prevExperience" style="white-space: pre-line; line-height: 1.6;">@Model.ExperienceDetails</div>
+                </div>
+
+                <!-- Projects -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Projects & Highlights</h6>
+                    <div class="text-secondary small" id="prevProjects" style="white-space: pre-line; line-height: 1.6;">@Model.ProjectsDetails</div>
+                </div>
+
+                <!-- Education & Certifications -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Education</h6>
+                        <div class="text-secondary small" id="prevEducation" style="white-space: pre-line; line-height: 1.6;">@Model.EducationDetails</div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-uppercase tracking-wider text-dark border-bottom pb-1 mb-2">Certifications</h6>
+                        <div class="text-secondary small" id="prevCertifications" style="white-space: pre-line; line-height: 1.6;">@Model.Certifications</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function updatePreview() {
+            document.getElementById('prevName').innerText = document.getElementById('inputName').value || 'Your Name';
+            document.getElementById('prevHeadline').innerText = document.getElementById('inputHeadline').value || 'Professional Headline';
+            document.getElementById('prevEmail').innerHTML = '<i class="fa-solid fa-envelope me-1 text-primary"></i>' + (document.getElementById('inputEmail').value || 'email@example.com');
+            document.getElementById('prevPhone').innerHTML = '<i class="fa-solid fa-phone me-1 text-primary"></i>' + (document.getElementById('inputPhone').value || '+91 00000 00000');
+            document.getElementById('prevSummary').innerText = document.getElementById('inputSummary').value;
+            document.getElementById('prevExperience').innerText = document.getElementById('inputExperience').value;
+            document.getElementById('prevEducation').innerText = document.getElementById('inputEducation').value;
+            document.getElementById('prevProjects').innerText = document.getElementById('inputProjects').value;
+            document.getElementById('prevCertifications').innerText = document.getElementById('inputCertifications').value;
+
+            const skillsText = document.getElementById('inputSkills').value;
+            const skillsContainer = document.getElementById('prevSkills');
+            skillsContainer.innerHTML = '';
+            if (skillsText) {
+                const arr = skillsText.split(/[,;]+/);
+                arr.forEach(s => {
+                    const trimmed = s.trim();
+                    if (trimmed) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-light text-dark border px-2 py-1 small';
+                        badge.innerText = trimmed;
+                        skillsContainer.appendChild(badge);
+                    }
+                });
+            }
+        }
+    </script>
+}

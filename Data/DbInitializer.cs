@@ -112,7 +112,18 @@ namespace JobPortPro.Data
                 CreatedAt = DateTime.UtcNow.AddMonths(-1)
             };
 
-            context.Users.AddRange(employer1, employer2, seeker1, seeker2);
+            var adminUser = new User
+            {
+                FullName = "JobPortPro Administrator",
+                Email = "admin@jobportpro.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                Role = "Admin",
+                PhoneNumber = "+91 9999999999",
+                Bio = "System Super Administrator for JobPortPro platform.",
+                CreatedAt = DateTime.UtcNow.AddMonths(-4)
+            };
+
+            context.Users.AddRange(adminUser, employer1, employer2, seeker1, seeker2);
             context.SaveChanges();
 
             // 5. Seed Company Profiles

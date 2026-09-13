@@ -293,4 +293,79 @@ namespace JobPortPro.Models
         public int TotalCandidates { get; set; }
         public int TotalApplications { get; set; }
     }
+
+    public class AdminDashboardViewModel
+    {
+        public int TotalUsers { get; set; }
+        public int TotalJobSeekers { get; set; }
+        public int TotalEmployers { get; set; }
+        public int TotalJobs { get; set; }
+        public int ActiveJobs { get; set; }
+        public int TotalApplications { get; set; }
+        public List<User> RecentUsers { get; set; } = new List<User>();
+        public List<Job> RecentJobs { get; set; } = new List<Job>();
+        public List<JobApplication> RecentApplications { get; set; } = new List<JobApplication>();
+    }
+
+    public class AdminUsersViewModel
+    {
+        public string? SearchQuery { get; set; }
+        public string? RoleFilter { get; set; }
+        public List<User> Users { get; set; } = new List<User>();
+    }
+
+    public class AdminJobsViewModel
+    {
+        public string? SearchQuery { get; set; }
+        public int? CategoryId { get; set; }
+        public List<Job> Jobs { get; set; } = new List<Job>();
+        public List<Category> Categories { get; set; } = new List<Category>();
+    }
+
+    public class ResumeBuilderViewModel
+    {
+        [Required(ErrorMessage = "Full Name is required")]
+        [Display(Name = "Full Name")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email Address is required")]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Display(Name = "Phone Number")]
+        public string? PhoneNumber { get; set; }
+
+        [Display(Name = "Location / City")]
+        public string? Location { get; set; }
+
+        [Display(Name = "Professional Headline / Title")]
+        public string? Headline { get; set; }
+
+        [Display(Name = "Executive Summary / Bio")]
+        public string? Summary { get; set; }
+
+        [Display(Name = "Key Technical & Soft Skills (comma separated)")]
+        public string? Skills { get; set; }
+
+        [Display(Name = "Work Experience")]
+        public string? ExperienceDetails { get; set; }
+
+        [Display(Name = "Education & Degrees")]
+        public string? EducationDetails { get; set; }
+
+        [Display(Name = "Key Projects & Achievements")]
+        public string? ProjectsDetails { get; set; }
+
+        [Display(Name = "Certifications")]
+        public string? Certifications { get; set; }
+
+        [Display(Name = "GitHub Profile URL")]
+        public string? GitHubUrl { get; set; }
+
+        [Display(Name = "LinkedIn Profile URL")]
+        public string? LinkedInUrl { get; set; }
+
+        [Display(Name = "Portfolio Website URL")]
+        public string? PortfolioUrl { get; set; }
+    }
 }
