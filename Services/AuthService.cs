@@ -29,13 +29,13 @@ namespace JobPortPro.Services
                 Direction = ParameterDirection.Output
             };
 
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(model.Password);
+            string passwordToSave = model.Password.Trim();
 
             var parameters = new[]
             {
                 new SqlParameter("@FullName", model.FullName.Trim()),
                 new SqlParameter("@Email", model.Email.Trim().ToLower()),
-                new SqlParameter("@PasswordHash", passwordHash),
+                new SqlParameter("@PasswordHash", passwordToSave),
                 new SqlParameter("@Role", model.Role == "Employer" ? "Employer" : "JobSeeker"),
                 new SqlParameter("@PhoneNumber", DBNull.Value),
                 new SqlParameter("@CompanyName", (object?)model.CompanyName?.Trim() ?? DBNull.Value),
@@ -89,9 +89,19 @@ namespace JobPortPro.Services
                     }
                 });
 
-            if (user != null && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if (user != null)
             {
-                return user;
+                // Direct plain text match
+                if (user.PasswordHash == password)
+                {
+                    return user;
+                }
+
+                // Fallback for any legacy BCrypt hashes
+                if (user.PasswordHash.StartsWith("$2") && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+                {
+                    return user;
+                }
             }
 
             return null;
@@ -179,7 +189,7 @@ namespace JobPortPro.Services
 
         public async Task<bool> ResetPasswordAsync(string email, string newPassword)
         {
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            string passwordToSave = newPassword.Trim();
             var outputParam = new SqlParameter("@Success", SqlDbType.Bit)
             {
                 Direction = ParameterDirection.Output
@@ -188,7 +198,7 @@ namespace JobPortPro.Services
             var parameters = new[]
             {
                 new SqlParameter("@Email", email.Trim().ToLower()),
-                new SqlParameter("@NewPasswordHash", passwordHash),
+                new SqlParameter("@NewPasswordHash", passwordToSave),
                 outputParam
             };
 
