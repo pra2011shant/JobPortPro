@@ -310,3 +310,25 @@ h1, h2, h3, h4, h5, h6, .brand-text {
   padding: 0.6rem 1.5rem !important;
   font-weight: 600 !important;
 }
+
+/* Navbar & Dropdown Stacking Order Fix */
+header.sticky-top {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1050 !important;
+}
+
+.navbar {
+  z-index: 1055 !important;
+}
+
+.navbar .dropdown-menu {
+  z-index: 1070 !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Page content sticky elements (e.g. sidebars/cards) must stay under navbar dropdowns */
+.card.sticky-top,
+.sticky-top:not(header) {
+  z-index: 20 !important;
+}

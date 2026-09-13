@@ -121,9 +121,8 @@ namespace JobPortPro.Controllers
             return View(model);
         }
 
-        // POST: /Account/Logout
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+        // GET & POST: /Account/Logout
+        [AcceptVerbs("GET", "POST")]
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
