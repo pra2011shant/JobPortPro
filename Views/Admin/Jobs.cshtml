@@ -94,7 +94,7 @@
                                         <i class="fa-solid @(job.IsActive ? "fa-eye-slash" : "fa-eye")"></i>
                                     </button>
                                 </form>
-                                <form asp-action="DeleteJob" asp-route-id="@job.Id" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this job?');">
+                                <form asp-action="DeleteJob" asp-route-id="@job.Id" method="post" class="d-inline" data-swal-confirm="Are you sure you want to permanently delete job '@job.Title'?" data-swal-title="Delete Job?" data-swal-btn="Yes, Delete" data-swal-icon="warning">
                                     @Html.AntiForgeryToken()
                                     <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2 py-1" title="Delete Job">
                                         <i class="fa-solid fa-trash"></i>

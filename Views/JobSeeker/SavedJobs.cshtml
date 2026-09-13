@@ -78,7 +78,7 @@
                                 <a asp-controller="Jobs" asp-action="Details" asp-route-id="@saved.JobId" class="btn btn-primary btn-sm rounded-pill px-4">
                                     Apply Now
                                 </a>
-                                <form asp-controller="Jobs" asp-action="ToggleSave" asp-route-id="@saved.JobId" method="post">
+                                <form asp-controller="Jobs" asp-action="ToggleSave" asp-route-id="@saved.JobId" method="post" data-swal-confirm="Remove this job from your bookmarks?" data-swal-title="Remove Bookmark?" data-swal-btn="Yes, Remove" data-swal-icon="question">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
                                     <button type="submit" class="btn btn-link text-muted text-decoration-none btn-sm small p-0">

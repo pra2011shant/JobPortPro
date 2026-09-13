@@ -277,3 +277,36 @@ h1, h2, h3, h4, h5, h6, .brand-text {
   border-color: var(--primary-color);
   background-color: var(--primary-light);
 }
+
+/* SweetAlert2 Modern Styling */
+.swal2-popup {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  border-radius: 1.25rem !important;
+  padding: 1.75rem !important;
+}
+
+.swal2-title {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important;
+  color: var(--dark-color) !important;
+}
+
+.swal2-toast {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+  font-weight: 500 !important;
+}
+
+.swal2-styled.swal2-confirm {
+  background-color: var(--primary-color) !important;
+  border-radius: 50rem !important;
+  padding: 0.6rem 1.5rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
+.swal2-styled.swal2-cancel {
+  border-radius: 50rem !important;
+  padding: 0.6rem 1.5rem !important;
+  font-weight: 600 !important;
+}

@@ -117,7 +117,7 @@
                             <a asp-controller="Jobs" asp-action="Details" asp-route-id="@app.JobId" class="btn btn-outline-primary btn-sm rounded-pill px-4">
                                 View Job Post
                             </a>
-                            <form asp-action="WithdrawApplication" asp-route-id="@app.Id" method="post" onsubmit="return confirm('Are you sure you want to withdraw this application?');">
+                            <form asp-action="WithdrawApplication" asp-route-id="@app.Id" method="post" data-swal-confirm="Are you sure you want to withdraw your application for '@app.Job?.Title'?" data-swal-title="Withdraw Application?" data-swal-btn="Yes, Withdraw" data-swal-icon="warning">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="btn btn-link text-danger text-decoration-none btn-sm small p-0">
                                     Withdraw Application
