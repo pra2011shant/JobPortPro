@@ -11,4 +11,5 @@
 *.dbmdl
 *.jfm
 .vscode/
+publish/
 appsettings.Development.json
