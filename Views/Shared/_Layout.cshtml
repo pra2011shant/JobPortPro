@@ -224,35 +224,8 @@
         </nav>
     </header>
 
-    <!-- Global Flash Messages / Alerts -->
+    <!-- Main Content -->
     <main role="main" class="flex-grow-1 pb-5">
-        <div class="container pt-3">
-            @if (TempData["SuccessMessage"] != null)
-            {
-                <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 d-flex align-items-center" role="alert">
-                    <i class="fa-solid fa-circle-check fs-5 me-2"></i>
-                    <div>@TempData["SuccessMessage"]</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["ErrorMessage"] != null)
-            {
-                <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 d-flex align-items-center" role="alert">
-                    <i class="fa-solid fa-triangle-exclamation fs-5 me-2"></i>
-                    <div>@TempData["ErrorMessage"]</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["WarningMessage"] != null)
-            {
-                <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm rounded-3 d-flex align-items-center" role="alert">
-                    <i class="fa-solid fa-circle-exclamation fs-5 me-2"></i>
-                    <div>@TempData["WarningMessage"]</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-        </div>
-
         @RenderBody()
     </main>
 
