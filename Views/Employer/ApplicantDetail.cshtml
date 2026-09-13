@@ -1,0 +1,161 @@
+@model JobPortPro.Models.ApplicantDetailViewModel
+@{
+    ViewData["Title"] = "Candidate Review: " + Model.ApplicantName;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-action="Dashboard" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item"><a asp-action="Applicants" class="text-decoration-none text-muted">Applicants</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.ApplicantName</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Left: Candidate Profile & Resume -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start mb-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar-circle bg-primary text-white d-inline-flex align-items-center justify-content-center fw-bold" style="width: 64px; height: 64px; font-size: 1.75rem;">
+                            @(Model.ApplicantName.Length > 0 ? Model.ApplicantName.Substring(0, 1).ToUpper() : "A")
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-1">@Model.ApplicantName</h3>
+                            <p class="text-muted small mb-0">@(Model.Headline ?? "Candidate")</p>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge @(Model.Status == "Shortlisted" ? "bg-warning text-dark" : Model.Status == "Accepted" ? "bg-success" : Model.Status == "Rejected" ? "bg-danger" : "bg-primary") rounded-pill px-3 py-2 fs-6">
+                            Status: @Model.Status
+                        </span>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4 p-3 bg-light rounded-3 small">
+                    <div class="col-sm-6">
+                        <span class="text-muted"><i class="fa-solid fa-envelope me-1"></i> Email:</span>
+                        <div class="fw-semibold">@Model.ApplicantEmail</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <span class="text-muted"><i class="fa-solid fa-phone me-1"></i> Phone:</span>
+                        <div class="fw-semibold">@(Model.ApplicantPhone ?? "Not provided")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <span class="text-muted"><i class="fa-solid fa-briefcase me-1"></i> Experience:</span>
+                        <div class="fw-semibold">@(Model.ExperienceYears.HasValue ? $"{Model.ExperienceYears} Years" : "Not specified")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <span class="text-muted"><i class="fa-solid fa-graduation-cap me-1"></i> Education:</span>
+                        <div class="fw-semibold">@(Model.Education ?? "Not specified")</div>
+                    </div>
+                </div>
+
+                <!-- Skills -->
+                @if (!string.IsNullOrEmpty(Model.Skills))
+                {
+                    <h5 class="fw-bold mb-2">Key Skills</h5>
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        @foreach (var skill in Model.Skills.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            <span class="badge bg-light text-primary border rounded-pill px-3 py-2">
+                                @skill.Trim()
+                            </span>
+                        }
+                    </div>
+                }
+
+                <!-- Cover Letter -->
+                <h5 class="fw-bold mb-2 border-top pt-4">Cover Letter / Pitch</h5>
+                @if (!string.IsNullOrWhiteSpace(Model.CoverLetter))
+                {
+                    <div class="p-3 bg-light rounded-3 text-secondary mb-4" style="line-height: 1.7; white-space: pre-line;">
+                        @Model.CoverLetter
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted small mb-4">No cover letter was submitted with this application.</p>
+                }
+
+                <!-- Resume Download Box -->
+                <h5 class="fw-bold mb-2 border-top pt-4">Attached Resume</h5>
+                <div class="d-flex align-items-center justify-content-between p-3 bg-light border rounded-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-file-pdf text-danger fs-3"></i>
+                        <div>
+                            <div class="fw-bold text-dark">@Model.ResumeFileName</div>
+                            <span class="text-muted small">Submitted on @Model.AppliedAt.ToString("MMM dd, yyyy hh:mm tt")</span>
+                        </div>
+                    </div>
+                    <a href="@Model.ResumePath" target="_blank" download class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm">
+                        <i class="fa-solid fa-download me-1"></i> Download Resume
+                    </a>
+                </div>
+
+                <!-- Links -->
+                @if (!string.IsNullOrEmpty(Model.GitHubUrl) || !string.IsNullOrEmpty(Model.LinkedInUrl))
+                {
+                    <div class="d-flex gap-3 mt-4">
+                        @if (!string.IsNullOrEmpty(Model.GitHubUrl))
+                        {
+                            <a href="@Model.GitHubUrl" target="_blank" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                                <i class="fa-brands fa-github me-1"></i> GitHub Profile
+                            </a>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.LinkedInUrl))
+                        {
+                            <a href="@Model.LinkedInUrl" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                <i class="fa-brands fa-linkedin me-1"></i> LinkedIn Profile
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Right: Status Update & Notes -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white sticky-top" style="top: 80px;">
+                <h5 class="fw-bold mb-3">Recruitment Actions</h5>
+
+                <form asp-action="UpdateApplicationStatus" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="applicationId" value="@Model.ApplicationId" />
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Update Candidate Status</label>
+                        <select name="status" class="form-select">
+                            <option value="Pending" selected="@(Model.Status == "Pending")">Pending</option>
+                            <option value="Reviewed" selected="@(Model.Status == "Reviewed")">Reviewed</option>
+                            <option value="Shortlisted" selected="@(Model.Status == "Shortlisted")">Shortlisted for Interview</option>
+                            <option value="Accepted" selected="@(Model.Status == "Accepted")">Hired / Accepted</option>
+                            <option value="Rejected" selected="@(Model.Status == "Rejected")">Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Internal Feedback / Employer Notes</label>
+                        <textarea name="notes" class="form-control" rows="4" placeholder="Add notes for interviewers or rejection rationale...">@Model.EmployerNotes</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold shadow-sm">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Update Pipeline Status
+                    </button>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="small">
+                    <div class="text-muted mb-1">Applied for Position:</div>
+                    <div class="fw-bold text-dark mb-2">@Model.JobTitle</div>
+                    <a asp-controller="Jobs" asp-action="Details" asp-route-id="@Model.JobId" target="_blank" class="text-primary text-decoration-none">
+                        View Job Post <i class="fa-solid fa-arrow-up-right-from-square ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

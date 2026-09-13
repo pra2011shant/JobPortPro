@@ -1,0 +1,86 @@
+@model JobPortPro.Models.ApplyJobViewModel
+@{
+    ViewData["Title"] = "Apply for " + Model.JobTitle;
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white">
+                <div class="mb-4">
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 mb-2">Job Application</span>
+                    <h3 class="fw-bold mb-1">Apply for @Model.JobTitle</h3>
+                    <p class="text-muted small mb-0">
+                        <i class="fa-solid fa-building me-1"></i>@Model.CompanyName &nbsp;|&nbsp; 
+                        <i class="fa-solid fa-location-dot me-1"></i>@Model.Location
+                    </p>
+                </div>
+
+                <form asp-action="Apply" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="JobId" />
+                    <input type="hidden" asp-for="JobTitle" />
+                    <input type="hidden" asp-for="CompanyName" />
+                    <input type="hidden" asp-for="Location" />
+
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    <!-- Cover Letter -->
+                    <div class="mb-4">
+                        <label asp-for="CoverLetter" class="form-label fw-semibold small text-muted">
+                            Cover Letter / Pitch to the Employer
+                        </label>
+                        <textarea asp-for="CoverLetter" class="form-control" rows="6" placeholder="Introduce yourself, explain why you're a great fit for this role, and highlight relevant achievements..."></textarea>
+                        <span asp-validation-for="CoverLetter" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Resume Selection -->
+                    <div class="mb-4 p-3 bg-light rounded-3">
+                        <h6 class="fw-bold mb-3"><i class="fa-solid fa-file-invoice text-primary me-2"></i>Select Your Resume</h6>
+
+                        @if (!string.IsNullOrEmpty(Model.ExistingResumeFileName))
+                        {
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="UseProfileResume" id="radioProfileResume" value="true" checked onclick="toggleResumeUpload(false)">
+                                <label class="form-check-label fw-semibold text-dark" for="radioProfileResume">
+                                    Use my saved profile resume: <span class="text-primary">@Model.ExistingResumeFileName</span>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="UseProfileResume" id="radioNewResume" value="false" onclick="toggleResumeUpload(true)">
+                                <label class="form-check-label fw-semibold text-dark" for="radioNewResume">
+                                    Upload a different resume tailored for this position
+                                </label>
+                            </div>
+                        }
+
+                        <div id="newResumeUploadDiv" style="@(!string.IsNullOrEmpty(Model.ExistingResumeFileName) ? "display:none;" : "display:block;")" class="mt-3">
+                            <label class="form-label small fw-semibold text-muted">Upload Resume (PDF, DOCX)</label>
+                            <input asp-for="ResumeFile" type="file" class="form-control" accept=".pdf,.doc,.docx" />
+                            <span asp-validation-for="ResumeFile" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a asp-action="Details" asp-route-id="@Model.JobId" class="btn btn-outline-secondary rounded-pill px-4">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 fw-semibold shadow-sm">
+                            <i class="fa-solid fa-paper-plane me-1"></i> Submit Application
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function toggleResumeUpload(show) {
+            document.getElementById('newResumeUploadDiv').style.display = show ? 'block' : 'none';
+        }
+    </script>
+}

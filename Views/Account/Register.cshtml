@@ -1,0 +1,130 @@
+@model JobPortPro.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="p-4 p-sm-5 bg-white">
+                    <div class="text-center mb-4">
+                        <div class="brand-icon d-inline-flex align-items-center justify-content-center text-white bg-primary rounded-3 mb-3 mx-auto">
+                            <i class="fa-solid fa-user-plus"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">Create an Account</h3>
+                        <p class="text-muted small">Join thousands of professionals and hiring managers</p>
+                    </div>
+
+                    <form asp-action="Register" method="post" id="registerForm">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+                        <!-- Role Selection -->
+                        <label class="form-label fw-semibold small text-muted mb-2">Account Type</label>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <div class="role-select-card @(Model.Role == "JobSeeker" ? "active" : "") text-center" id="cardJobSeeker" onclick="selectRole('JobSeeker')">
+                                    <i class="fa-solid fa-user-graduate fs-3 text-primary mb-2"></i>
+                                    <h6 class="fw-bold mb-1">Job Seeker</h6>
+                                    <p class="text-muted small mb-0" style="font-size: 0.75rem;">I want to find and apply for jobs</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="role-select-card @(Model.Role == "Employer" ? "active" : "") text-center" id="cardEmployer" onclick="selectRole('Employer')">
+                                    <i class="fa-solid fa-building-user fs-3 text-success mb-2"></i>
+                                    <h6 class="fw-bold mb-1">Employer</h6>
+                                    <p class="text-muted small mb-0" style="font-size: 0.75rem;">I want to post jobs & hire talent</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" asp-for="Role" id="selectedRoleInput" />
+
+                        <!-- Full Name -->
+                        <div class="mb-3">
+                            <label asp-for="FullName" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-user"></i></span>
+                                <input asp-for="FullName" class="form-control bg-light border-start-0" placeholder="e.g. John Doe" />
+                            </div>
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Company Name (Shows only for Employer) -->
+                        <div class="mb-3" id="companyNameGroup" style="@(Model.Role == "Employer" ? "display:block;" : "display:none;")">
+                            <label asp-for="CompanyName" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-building"></i></span>
+                                <input asp-for="CompanyName" class="form-control bg-light border-start-0" placeholder="e.g. Acme Corporation" />
+                            </div>
+                            <span asp-validation-for="CompanyName" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-envelope"></i></span>
+                                <input asp-for="Email" class="form-control bg-light border-start-0" placeholder="name@company.com" />
+                            </div>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-sm-6">
+                                <label asp-for="Password" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-lock"></i></span>
+                                    <input asp-for="Password" class="form-control bg-light border-start-0" placeholder="••••••••" />
+                                </div>
+                                <span asp-validation-for="Password" class="text-danger small"></span>
+                            </div>
+                            <div class="col-sm-6">
+                                <label asp-for="ConfirmPassword" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-shield-halved"></i></span>
+                                    <input asp-for="ConfirmPassword" class="form-control bg-light border-start-0" placeholder="••••••••" />
+                                </div>
+                                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold rounded-3 mb-3 shadow-sm">
+                            Create Account
+                        </button>
+                    </form>
+
+                    <div class="text-center">
+                        <p class="small text-muted mb-0">Already have an account? 
+                            <a asp-action="Login" class="text-primary fw-semibold text-decoration-none">Sign In</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function selectRole(role) {
+            document.getElementById('selectedRoleInput').value = role;
+            const seekerCard = document.getElementById('cardJobSeeker');
+            const employerCard = document.getElementById('cardEmployer');
+            const companyGroup = document.getElementById('companyNameGroup');
+
+            if (role === 'Employer') {
+                employerCard.classList.add('active');
+                seekerCard.classList.remove('active');
+                companyGroup.style.display = 'block';
+            } else {
+                seekerCard.classList.add('active');
+                employerCard.classList.remove('active');
+                companyGroup.style.display = 'none';
+            }
+        }
+    </script>
+}

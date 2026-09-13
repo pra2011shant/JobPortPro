@@ -1,0 +1,150 @@
+@model JobPortPro.Models.PostJobViewModel
+@{
+    ViewData["Title"] = "Post a New Job";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white">
+                <div class="mb-4">
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 mb-2">Hiring Portal</span>
+                    <h3 class="fw-bold mb-1">Create a New Job Listing</h3>
+                    <p class="text-muted small mb-0">Reach thousands of qualified developers, designers, and managers</p>
+                </div>
+
+                <form asp-action="PostJob" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    <!-- Job Title -->
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold small text-muted"></label>
+                        <input asp-for="Title" class="form-control" placeholder="e.g. Senior Full Stack .NET Engineer" />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Category & Job Type -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="CategoryId" class="form-label fw-semibold small text-muted"></label>
+                            <select asp-for="CategoryId" class="form-select">
+                                <option value="">Select Category</option>
+                                @if (Model.AvailableCategories != null)
+                                {
+                                    @foreach (var cat in Model.AvailableCategories)
+                                    {
+                                        <option value="@cat.Id">@cat.Name</option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="CategoryId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="JobType" class="form-label fw-semibold small text-muted"></label>
+                            <select asp-for="JobType" class="form-select">
+                                <option value="Full-Time">Full-Time</option>
+                                <option value="Part-Time">Part-Time</option>
+                                <option value="Remote">Remote</option>
+                                <option value="Contract">Contract</option>
+                                <option value="Internship">Internship</option>
+                            </select>
+                            <span asp-validation-for="JobType" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Location & Experience Level -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Location" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="Location" class="form-control" placeholder="e.g. Bengaluru, Karnataka (Hybrid)" />
+                            <span asp-validation-for="Location" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ExperienceLevel" class="form-label fw-semibold small text-muted"></label>
+                            <select asp-for="ExperienceLevel" class="form-select">
+                                <option value="Entry Level">Entry Level</option>
+                                <option value="Mid Level" selected>Mid Level</option>
+                                <option value="Senior Level">Senior Level</option>
+                                <option value="Director">Director / Executive</option>
+                            </select>
+                            <span asp-validation-for="ExperienceLevel" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Salary Range -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="SalaryMin" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input asp-for="SalaryMin" type="number" step="50000" class="form-control" placeholder="800000" />
+                            </div>
+                            <span asp-validation-for="SalaryMin" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="SalaryMax" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input asp-for="SalaryMax" type="number" step="50000" class="form-control" placeholder="1500000" />
+                            </div>
+                            <span asp-validation-for="SalaryMax" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="Description" class="form-control" rows="5" placeholder="Provide a thorough overview of the role, your team, and the project scope..."></textarea>
+                        <span asp-validation-for="Description" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Requirements -->
+                    <div class="mb-3">
+                        <label asp-for="Requirements" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="Requirements" class="form-control" rows="4" placeholder="• 3+ years experience in C# / .NET&#10;• Experience with SQL Server..."></textarea>
+                        <span asp-validation-for="Requirements" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Responsibilities -->
+                    <div class="mb-3">
+                        <label asp-for="Responsibilities" class="form-label fw-semibold small text-muted"></label>
+                        <textarea asp-for="Responsibilities" class="form-control" rows="4" placeholder="• Architect modern web applications&#10;• Collaborate with frontend developers..."></textarea>
+                        <span asp-validation-for="Responsibilities" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Deadline & Active -->
+                    <div class="row g-3 mb-4 align-items-center">
+                        <div class="col-md-6">
+                            <label asp-for="Deadline" class="form-label fw-semibold small text-muted"></label>
+                            <input asp-for="Deadline" class="form-control" />
+                            <span asp-validation-for="Deadline" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6 pt-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" asp-for="IsActive" id="isActiveCheck">
+                                <label class="form-check-label fw-semibold small text-dark" for="isActiveCheck">
+                                    Publish Immediately (Active)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <a asp-action="ManageJobs" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 fw-semibold shadow-sm">
+                            <i class="fa-solid fa-paper-plane me-1"></i> Publish Job Listing
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

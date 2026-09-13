@@ -1,0 +1,132 @@
+@model List<JobPortPro.Models.JobApplication>
+@{
+    ViewData["Title"] = "My Applications";
+    string currentStatus = ViewBag.CurrentStatus as string ?? "";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">My Job Applications</h2>
+            <p class="text-muted small mb-0">Track real-time status and feedback from hiring managers</p>
+        </div>
+        <div>
+            <a asp-controller="Jobs" asp-action="Index" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                <i class="fa-solid fa-magnifying-glass me-1"></i> Search More Jobs
+            </a>
+        </div>
+    </div>
+
+    <!-- Status Filter Tabs -->
+    <ul class="nav nav-pills mb-4 gap-2">
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(string.IsNullOrEmpty(currentStatus) ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs">
+                All (@Model.Count)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(currentStatus == "Pending" ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs" asp-route-status="Pending">
+                Pending
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(currentStatus == "Reviewed" ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs" asp-route-status="Reviewed">
+                Reviewed
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(currentStatus == "Shortlisted" ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs" asp-route-status="Shortlisted">
+                Shortlisted
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(currentStatus == "Accepted" ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs" asp-route-status="Accepted">
+                Accepted
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill @(currentStatus == "Rejected" ? "active" : "bg-white text-muted border")" asp-action="AppliedJobs" asp-route-status="Rejected">
+                Rejected
+            </a>
+        </li>
+    </ul>
+
+    @if (!Model.Any())
+    {
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+            <div class="text-muted mb-3">
+                <i class="fa-solid fa-file-circle-xmark fs-1"></i>
+            </div>
+            <h5 class="fw-bold mb-1">No Applications Found</h5>
+            <p class="text-muted small mb-3">You haven't submitted any applications under this category yet.</p>
+            <div>
+                <a asp-controller="Jobs" asp-action="Index" class="btn btn-primary btn-sm rounded-pill px-4">Browse Jobs Now</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-3">
+            @foreach (var app in Model)
+            {
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-auto">
+                            <div class="company-logo-box">
+                                @(app.Job?.Employer?.CompanyProfile?.CompanyName?.Substring(0, 1).ToUpper() ?? "C")
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <span class="badge @(app.Status == "Shortlisted" ? "bg-warning text-dark" : app.Status == "Accepted" ? "bg-success" : app.Status == "Rejected" ? "bg-danger" : app.Status == "Reviewed" ? "bg-info text-dark" : "bg-primary") rounded-pill px-3 py-1">
+                                    @app.Status
+                                </span>
+                                <span class="badge bg-light text-secondary rounded-pill border">
+                                    @(app.Job?.JobType ?? "Full-Time")
+                                </span>
+                            </div>
+
+                            <h5 class="fw-bold mb-1">
+                                <a asp-controller="Jobs" asp-action="Details" asp-route-id="@app.JobId" class="text-dark text-decoration-none">
+                                    @(app.Job?.Title ?? "Position")
+                                </a>
+                            </h5>
+
+                            <div class="d-flex flex-wrap gap-3 text-muted small">
+                                <span class="fw-semibold text-primary">
+                                    <i class="fa-solid fa-building me-1"></i>@(app.Job?.Employer?.CompanyProfile?.CompanyName ?? "Company")
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-location-dot me-1 text-secondary"></i>@(app.Job?.Location ?? "")
+                                </span>
+                                <span>
+                                    <i class="fa-regular fa-calendar-check me-1 text-muted"></i>Applied @app.AppliedAt.ToString("MMM dd, yyyy")
+                                </span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(app.EmployerNotes))
+                            {
+                                <div class="mt-3 p-3 bg-light rounded-3 small border-start border-primary border-3">
+                                    <span class="fw-bold text-dark"><i class="fa-solid fa-comment-dots me-1 text-primary"></i>Note from Employer:</span>
+                                    <p class="mb-0 text-muted mt-1">@app.EmployerNotes</p>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="col-12 col-md-auto text-md-end d-flex flex-md-column gap-2 justify-content-between align-items-end">
+                            <a asp-controller="Jobs" asp-action="Details" asp-route-id="@app.JobId" class="btn btn-outline-primary btn-sm rounded-pill px-4">
+                                View Job Post
+                            </a>
+                            <form asp-action="WithdrawApplication" asp-route-id="@app.Id" method="post" onsubmit="return confirm('Are you sure you want to withdraw this application?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-link text-danger text-decoration-none btn-sm small p-0">
+                                    Withdraw Application
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

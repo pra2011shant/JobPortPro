@@ -1,0 +1,14 @@
+## .NET Core & Visual Studio ignores
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.dbmdl
+*.jfm
+.vscode/
+appsettings.Development.json

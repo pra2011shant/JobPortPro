@@ -1,0 +1,210 @@
+@model JobPortPro.Models.JobSeekerDashboardViewModel
+@{
+    ViewData["Title"] = "Job Seeker Dashboard";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Candidate Dashboard</h2>
+            <p class="text-muted small mb-0">Track your submitted job applications and saved bookmarks</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-controller="Jobs" asp-action="Index" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                <i class="fa-solid fa-magnifying-glass me-1"></i> Browse Openings
+            </a>
+            <a asp-controller="Account" asp-action="Profile" class="btn btn-outline-secondary rounded-pill px-3">
+                <i class="fa-solid fa-user-pen me-1"></i> Update Resume
+            </a>
+        </div>
+    </div>
+
+    <!-- Analytics Stat Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-medium">Submitted Applications</div>
+                        <h3 class="fw-bold mb-0 mt-1 text-primary">@Model.TotalApplications</h3>
+                    </div>
+                    <div class="stat-icon bg-primary-subtle text-primary">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-medium">Under Review</div>
+                        <h3 class="fw-bold mb-0 mt-1 text-info">@Model.PendingApplications</h3>
+                    </div>
+                    <div class="stat-icon bg-info-subtle text-info">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-medium">Shortlisted / Hired</div>
+                        <h3 class="fw-bold mb-0 mt-1 text-success">@Model.ShortlistedApplications</h3>
+                    </div>
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-medium">Bookmarked Jobs</div>
+                        <h3 class="fw-bold mb-0 mt-1 text-warning">@Model.SavedJobsCount</h3>
+                    </div>
+                    <div class="stat-icon bg-warning-subtle text-warning">
+                        <i class="fa-solid fa-bookmark"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Recent Applications Table -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Recent Applications</h5>
+                    <a asp-action="AppliedJobs" class="text-primary small text-decoration-none fw-semibold">View All</a>
+                </div>
+
+                @if (!Model.RecentApplications.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-inbox fs-2 mb-2"></i>
+                        <p class="small mb-2">You haven't applied to any jobs yet.</p>
+                        <a asp-controller="Jobs" asp-action="Index" class="btn btn-sm btn-primary rounded-pill">Explore Available Jobs</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th>Position & Company</th>
+                                    <th>Applied Date</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="small">
+                                @foreach (var app in Model.RecentApplications)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-dark">@(app.Job?.Title ?? "Position")</div>
+                                            <span class="text-muted">@(app.Job?.Employer?.CompanyProfile?.CompanyName ?? "Company") • @(app.Job?.Location ?? "")</span>
+                                        </td>
+                                        <td>@app.AppliedAt.ToString("MMM dd, yyyy")</td>
+                                        <td>
+                                            <span class="badge @(app.Status == "Shortlisted" ? "bg-warning-subtle text-warning" : app.Status == "Accepted" ? "bg-success-subtle text-success" : app.Status == "Rejected" ? "bg-danger-subtle text-danger" : "bg-primary-subtle text-primary") rounded-pill px-3 py-1">
+                                                @app.Status
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <a asp-controller="Jobs" asp-action="Details" asp-route-id="@app.JobId" class="btn btn-sm btn-light py-0 px-2 rounded-pill">
+                                                View Job
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Saved Jobs List -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Saved Jobs</h5>
+                    <a asp-action="SavedJobs" class="text-primary small text-decoration-none fw-semibold">View All</a>
+                </div>
+
+                @if (!Model.SavedJobs.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-bookmark fs-2 mb-2"></i>
+                        <p class="small mb-0">No jobs bookmarked yet.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-3">
+                        @foreach (var saved in Model.SavedJobs)
+                        {
+                            <div class="p-3 bg-light rounded-3">
+                                <div class="fw-bold text-dark mb-1">
+                                    <a asp-controller="Jobs" asp-action="Details" asp-route-id="@saved.JobId" class="text-dark text-decoration-none">
+                                        @(saved.Job?.Title ?? "Job")
+                                    </a>
+                                </div>
+                                <div class="text-muted small mb-2">@(saved.Job?.Employer?.CompanyProfile?.CompanyName ?? "Company") • @(saved.Job?.Location ?? "")</div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-white text-secondary border rounded-pill small">@(saved.Job?.JobType ?? "Full-Time")</span>
+                                    <a asp-controller="Jobs" asp-action="Details" asp-route-id="@saved.JobId" class="btn btn-sm btn-primary rounded-pill py-0 px-3" style="font-size: 0.75rem;">
+                                        Apply
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommended Jobs -->
+    @if (Model.RecommendedJobs.Any())
+    {
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h5 class="fw-bold mb-3">Recommended For You</h5>
+            <div class="row g-3">
+                @foreach (var job in Model.RecommendedJobs)
+                {
+                    <div class="col-md-6 col-lg-3">
+                        <div class="p-3 border rounded-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <span class="badge bg-light text-primary border rounded-pill mb-2 small">@job.JobType</span>
+                                <h6 class="fw-bold mb-1">
+                                    <a asp-controller="Jobs" asp-action="Details" asp-route-id="@job.Id" class="text-dark text-decoration-none">
+                                        @job.Title
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-2">@(job.Employer?.CompanyProfile?.CompanyName ?? "Company")</p>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                <span class="small text-muted"><i class="fa-solid fa-location-dot me-1"></i>@job.Location</span>
+                                <a asp-controller="Jobs" asp-action="Details" asp-route-id="@job.Id" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2" style="font-size: 0.75rem;">
+                                    View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>

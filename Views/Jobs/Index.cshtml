@@ -1,0 +1,226 @@
+@model JobPortPro.Models.JobFilterViewModel
+@{
+    ViewData["Title"] = "Explore Jobs";
+}
+
+<div class="container py-4">
+    <!-- Header Banner -->
+    <div class="mb-4">
+        <h2 class="fw-bold mb-1">Explore Available Positions</h2>
+        <p class="text-muted small mb-0">Showing @Model.TotalItems verified opportunities matching your criteria</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- Filter Sidebar -->
+        <div class="col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white sticky-top" style="top: 80px; z-index: 10;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-filter me-2 text-primary"></i>Filters</h5>
+                    <a asp-action="Index" class="text-primary small text-decoration-none fw-semibold">Reset</a>
+                </div>
+
+                <form asp-action="Index" method="get">
+                    <!-- Search Query -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Keywords</label>
+                        <input type="text" name="q" value="@Model.Query" class="form-control form-control-sm" placeholder="Title, skills, company..." />
+                    </div>
+
+                    <!-- Category -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Industry Category</label>
+                        <select name="categoryId" class="form-select form-select-sm">
+                            <option value="">All Categories</option>
+                            @foreach (var cat in Model.Categories)
+                            {
+                                if (Model.CategoryId == cat.Id)
+                                {
+                                    <option value="@cat.Id" selected>@cat.Name</option>
+                                }
+                                else
+                                {
+                                    <option value="@cat.Id">@cat.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Job Type -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Job Type</label>
+                        <select name="jobType" class="form-select form-select-sm">
+                            <option value="">All Job Types</option>
+                            @foreach (var type in Model.JobTypes)
+                            {
+                                if (Model.JobType == type)
+                                {
+                                    <option value="@type" selected>@type</option>
+                                }
+                                else
+                                {
+                                    <option value="@type">@type</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Location</label>
+                        <input type="text" name="location" value="@Model.Location" class="form-control form-control-sm" placeholder="e.g. Bengaluru or Remote" />
+                    </div>
+
+                    <!-- Experience Level -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Experience Level</label>
+                        <select name="experienceLevel" class="form-select form-select-sm">
+                            <option value="">All Levels</option>
+                            <option value="Entry Level" selected="@(Model.ExperienceLevel == "Entry Level")">Entry Level</option>
+                            <option value="Mid Level" selected="@(Model.ExperienceLevel == "Mid Level")">Mid Level</option>
+                            <option value="Senior Level" selected="@(Model.ExperienceLevel == "Senior Level")">Senior Level</option>
+                            <option value="Director" selected="@(Model.ExperienceLevel == "Director")">Director</option>
+                        </select>
+                    </div>
+
+                    <!-- Minimum Salary -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-semibold text-muted">Min Salary (Annual)</label>
+                        <input type="number" step="100000" name="minSalary" value="@Model.MinSalary" class="form-control form-control-sm" placeholder="e.g. 800000" />
+                    </div>
+
+                    <!-- Hidden SortBy for persistence -->
+                    <input type="hidden" name="sortBy" value="@Model.SortBy" />
+
+                    <button type="submit" class="btn btn-primary w-100 btn-sm rounded-3 py-2 fw-semibold">
+                        Apply Filters
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Job Listings -->
+        <div class="col-lg-9">
+            <!-- Sort & Results Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-3 rounded-3 shadow-xs border">
+                <span class="small text-muted fw-semibold">Showing @Model.Jobs.Count of @Model.TotalItems jobs</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted d-none d-sm-inline">Sort by:</span>
+                    <form method="get" class="d-inline" id="sortForm">
+                        <input type="hidden" name="q" value="@Model.Query" />
+                        <input type="hidden" name="categoryId" value="@Model.CategoryId" />
+                        <input type="hidden" name="jobType" value="@Model.JobType" />
+                        <input type="hidden" name="location" value="@Model.Location" />
+                        <input type="hidden" name="experienceLevel" value="@Model.ExperienceLevel" />
+                        <input type="hidden" name="minSalary" value="@Model.MinSalary" />
+                        <select name="sortBy" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="newest" selected="@(Model.SortBy == "newest")">Newest First</option>
+                            <option value="salary_high" selected="@(Model.SortBy == "salary_high")">Salary (High to Low)</option>
+                            <option value="salary_low" selected="@(Model.SortBy == "salary_low")">Salary (Low to High)</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+
+            @if (Model.Jobs.Count == 0)
+            {
+                <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+                    <div class="text-muted mb-3">
+                        <i class="fa-solid fa-file-circle-question fs-1"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1">No Jobs Found</h5>
+                    <p class="text-muted small mb-4">We couldn't find any job postings matching your current filter criteria.</p>
+                    <div>
+                        <a asp-action="Index" class="btn btn-primary btn-sm rounded-pill px-4">
+                            Clear All Filters
+                        </a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var job in Model.Jobs)
+                    {
+                        <div class="col-12">
+                            <div class="job-card p-4 shadow-sm">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-auto">
+                                        <div class="company-logo-box">
+                                            @(job.Employer?.CompanyProfile?.CompanyName?.Substring(0, 1).ToUpper() ?? "C")
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                            <span class="badge @(job.JobType == "Remote" ? "badge-soft-success" : job.JobType == "Full-Time" ? "badge-soft-primary" : "badge-soft-warning") rounded-pill px-3">
+                                                @job.JobType
+                                            </span>
+                                            <span class="badge bg-light text-secondary rounded-pill border">
+                                                @(job.Category?.Name ?? "General")
+                                            </span>
+                                            @if (!string.IsNullOrEmpty(job.ExperienceLevel))
+                                            {
+                                                <span class="badge bg-light text-dark rounded-pill border">
+                                                    @job.ExperienceLevel
+                                                </span>
+                                            }
+                                        </div>
+                                        <h5 class="fw-bold mb-1">
+                                            <a asp-action="Details" asp-route-id="@job.Id" class="text-dark text-decoration-none">
+                                                @job.Title
+                                            </a>
+                                        </h5>
+                                        <div class="d-flex flex-wrap gap-3 text-muted small">
+                                            <span class="fw-semibold text-primary">
+                                                <i class="fa-solid fa-building me-1"></i>@(job.Employer?.CompanyProfile?.CompanyName ?? "Company")
+                                            </span>
+                                            <span>
+                                                <i class="fa-solid fa-location-dot me-1 text-secondary"></i>@job.Location
+                                            </span>
+                                            @if (job.SalaryMin.HasValue || job.SalaryMax.HasValue)
+                                            {
+                                                <span class="text-success fw-semibold">
+                                                    <i class="fa-solid fa-indian-rupee-sign me-1"></i>@string.Format("{0:N0}", job.SalaryMin) - @string.Format("{0:N0}", job.SalaryMax)
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-auto text-md-end mt-3 mt-md-0 d-flex flex-md-column gap-2 justify-content-between align-items-end">
+                                        <span class="small text-muted">Posted @job.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                        <a asp-action="Details" asp-route-id="@job.Id" class="btn btn-outline-primary btn-sm rounded-pill px-4">
+                                            View Details
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Pagination -->
+                @if (Model.TotalPages > 1)
+                {
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            @for (int p = 1; p <= Model.TotalPages; p++)
+                            {
+                                <li class="page-item @(p == Model.Page ? "active" : "")">
+                                    <a class="page-link" asp-action="Index" 
+                                       asp-route-page="@p"
+                                       asp-route-q="@Model.Query"
+                                       asp-route-categoryId="@Model.CategoryId"
+                                       asp-route-jobType="@Model.JobType"
+                                       asp-route-location="@Model.Location"
+                                       asp-route-experienceLevel="@Model.ExperienceLevel"
+                                       asp-route-minSalary="@Model.MinSalary"
+                                       asp-route-sortBy="@Model.SortBy">
+                                        @p
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            }
+        </div>
+    </div>
+</div>

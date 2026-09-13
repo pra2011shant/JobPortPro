@@ -1,0 +1,90 @@
+@model JobPortPro.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Sign In";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="p-4 p-sm-5 bg-white">
+                    <div class="text-center mb-4">
+                        <div class="brand-icon d-inline-flex align-items-center justify-content-center text-white bg-primary rounded-3 mb-3 mx-auto">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">Welcome Back</h3>
+                        <p class="text-muted small">Sign in to manage your jobs and applications</p>
+                    </div>
+
+                    <form asp-action="Login" asp-route-returnUrl="@ViewData["ReturnUrl"]" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label fw-semibold small text-muted"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-envelope"></i></span>
+                                <input asp-for="Email" id="loginEmail" class="form-control bg-light border-start-0" placeholder="name@example.com" />
+                            </div>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label asp-for="Password" class="form-label fw-semibold small text-muted mb-0"></label>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa-solid fa-lock"></i></span>
+                                <input asp-for="Password" id="loginPassword" type="password" class="form-control bg-light border-start-0" placeholder="••••••••" />
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" asp-for="RememberMe" id="rememberMe">
+                            <label class="form-check-label small text-muted" for="rememberMe">
+                                Remember this device
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold rounded-3 mb-3 shadow-sm">
+                            Sign In
+                        </button>
+                    </form>
+
+                    <!-- Quick Demo Credentials Box -->
+                    <div class="card bg-light border-0 rounded-3 p-3 mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="fa-solid fa-key text-warning"></i>
+                            <span class="small fw-bold text-dark">One-Click Demo Accounts</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary flex-fill" onclick="fillCredentials('employer@techsolutions.com', 'Password123!')">
+                                <i class="fa-solid fa-building me-1"></i> Demo Employer
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success flex-fill" onclick="fillCredentials('rahul.verma@example.com', 'Password123!')">
+                                <i class="fa-solid fa-user me-1"></i> Demo Seeker
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="small text-muted mb-0">Don't have an account? 
+                            <a asp-action="Register" class="text-primary fw-semibold text-decoration-none">Create Account</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function fillCredentials(email, password) {
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('loginPassword').value = password;
+        }
+    </script>
+}
