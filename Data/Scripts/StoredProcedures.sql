@@ -1,8 +1,272 @@
--- ==========================================================
--- JobPortPro Production Stored Procedures (SPs)
--- Database: JobPortPro | SQL Server
--- High-Performance, Parameterized & Clean Data Access
--- ==========================================================
+-- ====================================================================
+-- JobPortPro Complete Database Setup & Stored Procedures Script
+-- Database: JobPortPro | SQL Server Express
+-- Safe for fresh databases or existing databases (Idempotent & Self-Healing)
+-- ====================================================================
+
+USE [JobPortPro];
+GO
+
+-- --------------------------------------------------------------------
+-- 1. TABLE CREATION & SCHEMA MIGRATION (Ensuring all columns exist)
+-- --------------------------------------------------------------------
+
+-- 1.1 Categories Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Categories')
+BEGIN
+    CREATE TABLE dbo.Categories (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL,
+        IconClass NVARCHAR(50) NULL,
+        Description NVARCHAR(250) NULL,
+        DisplayOrder INT NOT NULL DEFAULT 0,
+        IsActive BIT NOT NULL DEFAULT 1,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.Categories', 'DisplayOrder') IS NULL ALTER TABLE dbo.Categories ADD DisplayOrder INT NOT NULL DEFAULT 0;
+    IF COL_LENGTH('dbo.Categories', 'IsActive') IS NULL ALTER TABLE dbo.Categories ADD IsActive BIT NOT NULL DEFAULT 1;
+    IF COL_LENGTH('dbo.Categories', 'CreatedAt') IS NULL ALTER TABLE dbo.Categories ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.Categories', 'UpdatedAt') IS NULL ALTER TABLE dbo.Categories ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.Categories', 'IconClass') IS NULL ALTER TABLE dbo.Categories ADD IconClass NVARCHAR(50) NULL;
+    IF COL_LENGTH('dbo.Categories', 'Description') IS NULL ALTER TABLE dbo.Categories ADD Description NVARCHAR(250) NULL;
+END
+GO
+
+-- 1.2 JobTypes Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'JobTypes')
+BEGIN
+    CREATE TABLE dbo.JobTypes (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        Name NVARCHAR(50) NOT NULL,
+        Code NVARCHAR(50) NOT NULL,
+        BadgeClass NVARCHAR(50) NULL,
+        DisplayOrder INT NOT NULL DEFAULT 0,
+        IsActive BIT NOT NULL DEFAULT 1,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 1.3 ExperienceLevels Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ExperienceLevels')
+BEGIN
+    CREATE TABLE dbo.ExperienceLevels (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        Title NVARCHAR(100) NOT NULL,
+        Code NVARCHAR(50) NOT NULL,
+        MinYears INT NOT NULL DEFAULT 0,
+        MaxYears INT NULL,
+        DisplayOrder INT NOT NULL DEFAULT 0,
+        IsActive BIT NOT NULL DEFAULT 1,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+-- 1.4 Users Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Users')
+BEGIN
+    CREATE TABLE dbo.Users (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        FullName NVARCHAR(100) NOT NULL,
+        Email NVARCHAR(256) NOT NULL UNIQUE,
+        PasswordHash NVARCHAR(500) NOT NULL,
+        Role NVARCHAR(50) NOT NULL,
+        PhoneNumber NVARCHAR(20) NULL,
+        Bio NVARCHAR(500) NULL,
+        ProfilePicture NVARCHAR(500) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.Users', 'PhoneNumber') IS NULL ALTER TABLE dbo.Users ADD PhoneNumber NVARCHAR(20) NULL;
+    IF COL_LENGTH('dbo.Users', 'Bio') IS NULL ALTER TABLE dbo.Users ADD Bio NVARCHAR(500) NULL;
+    IF COL_LENGTH('dbo.Users', 'ProfilePicture') IS NULL ALTER TABLE dbo.Users ADD ProfilePicture NVARCHAR(500) NULL;
+    IF COL_LENGTH('dbo.Users', 'CreatedAt') IS NULL ALTER TABLE dbo.Users ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.Users', 'UpdatedAt') IS NULL ALTER TABLE dbo.Users ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- 1.5 CompanyProfiles Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'CompanyProfiles')
+BEGIN
+    CREATE TABLE dbo.CompanyProfiles (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL UNIQUE FOREIGN KEY REFERENCES dbo.Users(Id) ON DELETE CASCADE,
+        CompanyName NVARCHAR(200) NOT NULL,
+        Description NVARCHAR(MAX) NULL,
+        Website NVARCHAR(200) NULL,
+        Location NVARCHAR(150) NULL,
+        Industry NVARCHAR(100) NULL,
+        CompanySize NVARCHAR(50) NULL,
+        LogoUrl NVARCHAR(500) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.CompanyProfiles', 'CreatedAt') IS NULL ALTER TABLE dbo.CompanyProfiles ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.CompanyProfiles', 'UpdatedAt') IS NULL ALTER TABLE dbo.CompanyProfiles ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- 1.6 JobSeekerProfiles Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'JobSeekerProfiles')
+BEGIN
+    CREATE TABLE dbo.JobSeekerProfiles (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL UNIQUE FOREIGN KEY REFERENCES dbo.Users(Id) ON DELETE CASCADE,
+        Headline NVARCHAR(200) NULL,
+        Skills NVARCHAR(MAX) NULL,
+        ExperienceYears INT NULL,
+        Education NVARCHAR(200) NULL,
+        ResumeFilePath NVARCHAR(500) NULL,
+        ResumeFileName NVARCHAR(255) NULL,
+        GitHubUrl NVARCHAR(200) NULL,
+        LinkedInUrl NVARCHAR(200) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.JobSeekerProfiles', 'CreatedAt') IS NULL ALTER TABLE dbo.JobSeekerProfiles ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.JobSeekerProfiles', 'UpdatedAt') IS NULL ALTER TABLE dbo.JobSeekerProfiles ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- 1.7 Jobs Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Jobs')
+BEGIN
+    CREATE TABLE dbo.Jobs (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        EmployerId INT NOT NULL FOREIGN KEY REFERENCES dbo.Users(Id),
+        Title NVARCHAR(200) NOT NULL,
+        CategoryId INT NOT NULL FOREIGN KEY REFERENCES dbo.Categories(Id),
+        JobTypeId INT NULL FOREIGN KEY REFERENCES dbo.JobTypes(Id),
+        JobType NVARCHAR(50) NOT NULL DEFAULT 'Full-Time',
+        Location NVARCHAR(150) NOT NULL,
+        SalaryMin DECIMAL(18,2) NULL,
+        SalaryMax DECIMAL(18,2) NULL,
+        ExperienceLevelId INT NULL FOREIGN KEY REFERENCES dbo.ExperienceLevels(Id),
+        ExperienceLevel NVARCHAR(50) NULL,
+        Description NVARCHAR(MAX) NOT NULL,
+        Requirements NVARCHAR(MAX) NULL,
+        Responsibilities NVARCHAR(MAX) NULL,
+        IsActive BIT NOT NULL DEFAULT 1,
+        Deadline DATETIME2 NULL,
+        ViewsCount INT NOT NULL DEFAULT 0,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.Jobs', 'JobTypeId') IS NULL ALTER TABLE dbo.Jobs ADD JobTypeId INT NULL;
+    IF COL_LENGTH('dbo.Jobs', 'ExperienceLevelId') IS NULL ALTER TABLE dbo.Jobs ADD ExperienceLevelId INT NULL;
+    IF COL_LENGTH('dbo.Jobs', 'ViewsCount') IS NULL ALTER TABLE dbo.Jobs ADD ViewsCount INT NOT NULL DEFAULT 0;
+    IF COL_LENGTH('dbo.Jobs', 'CreatedAt') IS NULL ALTER TABLE dbo.Jobs ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.Jobs', 'UpdatedAt') IS NULL ALTER TABLE dbo.Jobs ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- 1.8 JobApplications Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'JobApplications')
+BEGIN
+    CREATE TABLE dbo.JobApplications (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        JobId INT NOT NULL FOREIGN KEY REFERENCES dbo.Jobs(Id) ON DELETE CASCADE,
+        JobSeekerId INT NOT NULL FOREIGN KEY REFERENCES dbo.Users(Id),
+        CoverLetter NVARCHAR(MAX) NULL,
+        ResumePath NVARCHAR(500) NOT NULL,
+        ResumeFileName NVARCHAR(255) NOT NULL,
+        AppliedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        Status NVARCHAR(30) NOT NULL DEFAULT 'Pending',
+        EmployerNotes NVARCHAR(MAX) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.JobApplications', 'CreatedAt') IS NULL ALTER TABLE dbo.JobApplications ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.JobApplications', 'UpdatedAt') IS NULL ALTER TABLE dbo.JobApplications ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- 1.9 SavedJobs Table
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SavedJobs')
+BEGIN
+    CREATE TABLE dbo.SavedJobs (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        JobId INT NOT NULL FOREIGN KEY REFERENCES dbo.Jobs(Id) ON DELETE CASCADE,
+        JobSeekerId INT NOT NULL FOREIGN KEY REFERENCES dbo.Users(Id),
+        SavedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+ELSE
+BEGIN
+    IF COL_LENGTH('dbo.SavedJobs', 'CreatedAt') IS NULL ALTER TABLE dbo.SavedJobs ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+    IF COL_LENGTH('dbo.SavedJobs', 'UpdatedAt') IS NULL ALTER TABLE dbo.SavedJobs ADD UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+END
+GO
+
+-- --------------------------------------------------------------------
+-- 2. SEED DEFAULT MASTER LOOKUPS (If empty)
+-- --------------------------------------------------------------------
+
+IF NOT EXISTS (SELECT 1 FROM dbo.JobTypes)
+BEGIN
+    INSERT INTO dbo.JobTypes (Name, Code, BadgeClass, DisplayOrder, IsActive, CreatedAt, UpdatedAt)
+    VALUES 
+    ('Full-Time', 'full-time', 'badge-soft-primary', 1, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Remote', 'remote', 'badge-soft-success', 2, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Part-Time', 'part-time', 'badge-soft-warning', 3, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Contract', 'contract', 'badge-soft-info', 4, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Internship', 'internship', 'badge-soft-secondary', 5, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ExperienceLevels)
+BEGIN
+    INSERT INTO dbo.ExperienceLevels (Title, Code, MinYears, MaxYears, DisplayOrder, IsActive, CreatedAt, UpdatedAt)
+    VALUES 
+    ('Entry Level', 'entry-level', 0, 2, 1, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Mid Level', 'mid-level', 2, 5, 2, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Senior Level', 'senior-level', 5, 10, 3, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Director / Executive', 'director', 10, NULL, 4, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Categories)
+BEGIN
+    INSERT INTO dbo.Categories (Name, IconClass, Description, DisplayOrder, IsActive, CreatedAt, UpdatedAt)
+    VALUES 
+    ('Software & IT', 'fa-solid fa-code', 'Web Development, Mobile Apps, Cloud, DevOps, AI & Data Science', 1, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Design & Creative', 'fa-solid fa-palette', 'UI/UX, Graphic Design, Product Design, 3D Animation', 2, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Marketing & Sales', 'fa-solid fa-bullhorn', 'Digital Marketing, SEO, Social Media, Content, B2B Sales', 3, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Finance & Accounting', 'fa-solid fa-chart-pie', 'Auditing, Financial Analysis, Taxation, Banking', 4, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Customer Support', 'fa-solid fa-headset', 'Technical Support, Customer Success, Helpdesk', 5, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Human Resources', 'fa-solid fa-users-gear', 'Talent Acquisition, HR Operations, Payroll, Employee Relations', 6, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Healthcare', 'fa-solid fa-heart-pulse', 'Nursing, Clinical Research, Pharmacy, Medical Tech', 7, 1, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('Engineering', 'fa-solid fa-gears', 'Mechanical, Civil, Electrical, Robotics', 8, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+END
+GO
+
+-- --------------------------------------------------------------------
+-- 3. STORED PROCEDURES (18 High-Performance SPs)
+-- --------------------------------------------------------------------
 
 -- 1. Get All Categories
 CREATE OR ALTER PROCEDURE dbo.sp_GetCategories
@@ -85,13 +349,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Normalize inputs
     SET @SearchQuery = LTRIM(RTRIM(@SearchQuery));
     SET @Location = LTRIM(RTRIM(@Location));
     IF @PageNumber < 1 SET @PageNumber = 1;
     IF @PageSize < 1 SET @PageSize = 9;
 
-    -- Calculate Total Matching Count
     SELECT @TotalCount = COUNT(1)
     FROM dbo.Jobs j WITH (NOLOCK)
     LEFT JOIN dbo.Categories c WITH (NOLOCK) ON j.CategoryId = c.Id
@@ -112,7 +374,6 @@ BEGIN
            j.Requirements LIKE '%' + @SearchQuery + '%' OR 
            cp.CompanyName LIKE '%' + @SearchQuery + '%');
 
-    -- Return Paginated Data
     SELECT 
         j.Id,
         j.Title,
@@ -133,19 +394,14 @@ BEGIN
         j.ViewsCount,
         j.CreatedAt,
         j.UpdatedAt,
-        -- Category details
         c.Name AS CategoryName,
         c.IconClass AS CategoryIcon,
-        -- JobType details
         jt.Name AS JobTypeName,
         jt.BadgeClass AS JobTypeBadge,
-        -- ExperienceLevel details
         el.Title AS ExperienceLevelTitle,
-        -- Company details
         cp.CompanyName,
         cp.Location AS CompanyLocation,
         cp.Website AS CompanyWebsite,
-        -- Application Count
         (SELECT COUNT(1) FROM dbo.JobApplications ja WITH (NOLOCK) WHERE ja.JobId = j.Id) AS ApplicationCount
     FROM dbo.Jobs j WITH (NOLOCK)
     LEFT JOIN dbo.Categories c WITH (NOLOCK) ON j.CategoryId = c.Id
@@ -265,7 +521,7 @@ BEGIN
 END;
 GO
 
--- 7. Get Job Details by ID (and increment view count)
+-- 7. Get Job Details by ID
 CREATE OR ALTER PROCEDURE dbo.sp_GetJobById
     @JobId INT,
     @IncrementViews BIT = 1
@@ -341,13 +597,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Infer JobType name if null
     IF @JobTypeId IS NOT NULL AND (@JobType IS NULL OR @JobType = '')
     BEGIN
         SELECT @JobType = Name FROM dbo.JobTypes WHERE Id = @JobTypeId;
     END
 
-    -- Infer ExperienceLevel name if null
     IF @ExperienceLevelId IS NOT NULL AND (@ExperienceLevel IS NULL OR @ExperienceLevel = '')
     BEGIN
         SELECT @ExperienceLevel = Title FROM dbo.ExperienceLevels WHERE Id = @ExperienceLevelId;
@@ -394,13 +648,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Infer JobType name if null
     IF @JobTypeId IS NOT NULL AND (@JobType IS NULL OR @JobType = '')
     BEGIN
         SELECT @JobType = Name FROM dbo.JobTypes WHERE Id = @JobTypeId;
     END
 
-    -- Infer ExperienceLevel name if null
     IF @ExperienceLevelId IS NOT NULL AND (@ExperienceLevel IS NULL OR @ExperienceLevel = '')
     BEGIN
         SELECT @ExperienceLevel = Title FROM dbo.ExperienceLevels WHERE Id = @ExperienceLevelId;
@@ -449,7 +701,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check if already applied
     IF EXISTS (SELECT 1 FROM dbo.JobApplications WHERE JobId = @JobId AND JobSeekerId = @JobSeekerId)
     BEGIN
         SELECT @ApplicationId = Id FROM dbo.JobApplications WHERE JobId = @JobId AND JobSeekerId = @JobSeekerId;
@@ -491,10 +742,8 @@ BEGIN
         ja.EmployerNotes,
         ja.CreatedAt,
         ja.UpdatedAt,
-        -- Job info
         j.Title AS JobTitle,
         j.Location AS JobLocation,
-        -- Job Seeker info
         u.FullName AS CandidateName,
         u.Email AS CandidateEmail,
         u.PhoneNumber AS CandidatePhone,
@@ -530,13 +779,11 @@ BEGIN
         ja.EmployerNotes,
         ja.CreatedAt,
         ja.UpdatedAt,
-        -- Job info
         j.Title AS JobTitle,
         j.Location AS JobLocation,
         j.JobType,
         j.SalaryMin,
         j.SalaryMax,
-        -- Company info
         cp.CompanyName,
         cp.Location AS CompanyLocation
     FROM dbo.JobApplications ja WITH (NOLOCK)
@@ -612,7 +859,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check duplicate email
     IF EXISTS (SELECT 1 FROM dbo.Users WHERE Email = @Email)
     BEGIN
         SET @UserId = -1;
@@ -624,7 +870,6 @@ BEGIN
 
     SET @UserId = SCOPE_IDENTITY();
 
-    -- Automatically initialize corresponding profile
     IF @Role = 'Employer'
     BEGIN
         INSERT INTO dbo.CompanyProfiles (UserId, CompanyName, CreatedAt, UpdatedAt)
